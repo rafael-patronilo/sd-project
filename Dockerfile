@@ -8,4 +8,4 @@ WORKDIR /home/sd
 COPY target/*jar-with-dependencies.jar sd2122.jar
 
 # run Discovery when starting the docker image
-CMD ["java", "-cp", "/home/sd/sd2122.jar", "sd2122.aula2.server.UsersServer"]
+CMD ["java", "-cp", "/home/sd/sd2122.jar", "UsersServer"]

@@ -1,4 +1,4 @@
-package sd2122.aula2.server.resources;
+package tp1.server.resources;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -9,8 +9,8 @@ import java.util.logging.Logger;
 import jakarta.inject.Singleton;
 import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.Response.Status;
-import sd2122.aula2.api.User;
-import sd2122.aula2.api.service.RestUsers;
+import tp1.api.User;
+import tp1.api.service.rest.RestUsers;
 
 @Singleton
 public class UsersResource implements RestUsers {
