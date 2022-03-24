@@ -1,10 +1,12 @@
 package tp1.server.resources;
 
+import jakarta.inject.Singleton;
 import tp1.api.FileInfo;
 import tp1.api.service.rest.RestDirectory;
 
 import java.util.List;
 
+@Singleton
 public class DirectoryResource implements RestDirectory {
 
     @Override
@@ -14,17 +16,17 @@ public class DirectoryResource implements RestDirectory {
 
     @Override
     public void deleteFile(String filename, String userId, String password) {
-        
+
     }
 
     @Override
     public void shareFile(String filename, String userId, String userIdShare, String password) {
-        
+
     }
 
     @Override
     public void unshareFile(String filename, String userId, String userIdShare, String password) {
-        
+
     }
 
     @Override
