@@ -13,7 +13,10 @@ import java.util.logging.Logger;
 
 @Singleton
 public class DirectoryResource implements RestDirectory {
+    public final static String FILE_SERVERS_PROPERTY = "fileServers";
+
     private record FileLocation(String userId, String filename) {}
+
     Map<FileLocation, String> locationToId = new HashMap<>();
     Map<FileLocation, FileInfo> locationToInfo = new HashMap<>();
     Map<String, String> idToServer = new HashMap<>();

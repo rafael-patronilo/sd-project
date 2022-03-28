@@ -1,10 +1,10 @@
-package tp1.clients;
+package tp1.serverProxies;
 
 import tp1.api.User;
-import tp1.clients.exceptions.IncorrectPasswordException;
-import tp1.clients.exceptions.InvalidUserIdException;
+import tp1.serverProxies.exceptions.IncorrectPasswordException;
+import tp1.serverProxies.exceptions.InvalidUserIdException;
 
-public interface UserClient {
+public interface UsersClientProxy {
     /**
      * Obtains the information on the user identified by name.
      *

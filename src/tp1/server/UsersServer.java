@@ -34,20 +34,6 @@ public class UsersServer {
 
             Log.info(String.format("%s Server ready @ %s\n", SERVICE, serverURI));
             MulticastServiceDiscovery.announcementThread(SERVICE, serverURI).start();
-            MulticastServiceDiscovery.discoveryThread(
-                    (tokens)-> {
-                        switch (tokens[0]){
-                            case "UsersService":
-                                //TODO save users service
-                                break;
-                            case "FilesService":
-                                //TODO save files service
-                                break;
-                            default:
-                                break;
-                        }
-                    });
-
         } catch (Exception e) {
             Log.severe(e.getMessage());
         }

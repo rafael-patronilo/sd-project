@@ -1,4 +1,4 @@
-package tp1.clients.exceptions;
+package tp1.serverProxies.exceptions;
 
 public class IncorrectPasswordException extends Exception{
 }
