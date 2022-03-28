@@ -30,8 +30,6 @@ public class DirectoryServer {
         try {
 
             ResourceConfig config = new ResourceConfig();
-            List<FilesServerProxy> fileServers = new ArrayList<>();
-            config.property(DirectoryResource.FILE_SERVERS_PROPERTY, fileServers);
             config.register(DirectoryResource.class);
 
             String ip = InetAddress.getLocalHost().getHostAddress();
@@ -40,19 +38,7 @@ public class DirectoryServer {
 
             Log.info(String.format("%s Server ready @ %s\n",  SERVICE, serverURI));
             MulticastServiceDiscovery.announcementThread(SERVICE, serverURI).start();
-            MulticastServiceDiscovery.discoveryThread(
-                    (tokens)-> {
-                        switch (tokens[0]){
-                            case UsersServer.SERVICE:
-                                //TODO save users service
-                                break;
-                            case FilesServer.SERVICE:
-                                //TODO save files service
-                                break;
-                            default:
-                                break;
-                        }
-                    }).start();
+
 
         } catch( Exception e) {
             Log.severe(e.getMessage());

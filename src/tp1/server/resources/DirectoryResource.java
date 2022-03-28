@@ -2,11 +2,23 @@ package tp1.server.resources;
 
 import jakarta.inject.Singleton;
 import jakarta.ws.rs.WebApplicationException;
+import jakarta.ws.rs.client.Client;
+import jakarta.ws.rs.client.ClientBuilder;
+import jakarta.ws.rs.client.WebTarget;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.Response.Status;
+import org.glassfish.jersey.client.ClientConfig;
 import tp1.api.FileInfo;
 import tp1.api.service.rest.RestDirectory;
+import tp1.server.FilesServer;
+import tp1.server.MulticastServiceDiscovery;
+import tp1.server.UsersServer;
+import tp1.serverProxies.FilesServerProxy;
+import tp1.serverProxies.RestFilesServer;
+import tp1.serverProxies.RestUsersServer;
+import tp1.serverProxies.UsersServerProxy;
 
+import java.io.File;
 import java.util.*;
 import java.util.logging.Logger;
 
@@ -14,6 +26,8 @@ import java.util.logging.Logger;
 @Singleton
 public class DirectoryResource implements RestDirectory {
     public final static String FILE_SERVERS_PROPERTY = "fileServers";
+    private UsersServerProxy usersServer = null;
+    private List<FilesServerProxy> filesServers = new ArrayList<>();
 
     private record FileLocation(String userId, String filename) {}
 
@@ -25,7 +39,25 @@ public class DirectoryResource implements RestDirectory {
     private static Logger Log = Logger.getLogger(DirectoryResource.class.getName());
 
     public DirectoryResource(){
-
+        FileLocation location = new FileLocation("ya", "neh");
+        ClientConfig config = new ClientConfig();
+        Client client = ClientBuilder.newClient(config);
+        MulticastServiceDiscovery.discoveryThread(
+                (tokens)-> {
+                    WebTarget target;
+                    switch (tokens[0]){
+                        case UsersServer.SERVICE:
+                            target = client.target(tokens[1]);
+                            usersServer = new RestUsersServer(target);
+                            break;
+                        case FilesServer.SERVICE:
+                            target = client.target(tokens[1]);
+                            filesServers.add(new RestFilesServer(target));
+                            break;
+                        default:
+                            break;
+                    }
+                }).start();
     }
 
     @Override

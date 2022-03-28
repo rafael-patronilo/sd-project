@@ -4,7 +4,7 @@ import tp1.api.User;
 import tp1.serverProxies.exceptions.IncorrectPasswordException;
 import tp1.serverProxies.exceptions.InvalidUserIdException;
 
-public interface UsersClientProxy {
+public interface UsersServerProxy {
     /**
      * Obtains the information on the user identified by name.
      *
