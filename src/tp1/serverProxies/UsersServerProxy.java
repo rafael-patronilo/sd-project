@@ -3,6 +3,7 @@ package tp1.serverProxies;
 import tp1.api.User;
 import tp1.serverProxies.exceptions.IncorrectPasswordException;
 import tp1.serverProxies.exceptions.InvalidUserIdException;
+import tp1.serverProxies.exceptions.RequestTimeoutException;
 
 public interface UsersServerProxy {
     /**
@@ -14,14 +15,16 @@ public interface UsersServerProxy {
      *         password
      * @throws InvalidUserIdException if no user exists with the provided userId
      * @throws IncorrectPasswordException if the password is incorrect
+     * @throws RequestTimeoutException if the response takes too long to arrive.
      */
-    User getUser(String userId, String password) throws InvalidUserIdException, IncorrectPasswordException;
+    User getUser(String userId, String password) throws InvalidUserIdException, IncorrectPasswordException, RequestTimeoutException;
 
     /**
      * Checks if there's a user with the given id
      *
      * @param userId the userId of the user
      * @return true if there is a user with the given id, false otherwise
+     * @throws RequestTimeoutException if the response takes too long to arrive.
      */
-    boolean hasUser(String userId);
+    boolean hasUser(String userId) throws RequestTimeoutException;
 }

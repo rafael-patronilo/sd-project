@@ -12,6 +12,8 @@ import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.MediaType;
 import tp1.api.FileInfo;
+import tp1.serverProxies.exceptions.FileNotFoundException;
+import tp1.serverProxies.exceptions.RequestTimeoutException;
 
 @Path(RestDirectory.PATH)
 public interface RestDirectory {
@@ -39,7 +41,7 @@ public interface RestDirectory {
 	@Consumes(MediaType.APPLICATION_OCTET_STREAM)
 	@Produces(MediaType.APPLICATION_JSON)
 	FileInfo writeFile(@PathParam("filename") String filename, byte []data, 
-			@PathParam("userId") String userId, @QueryParam("password") String password);
+			@PathParam("userId") String userId, @QueryParam("password") String password) throws RequestTimeoutException, FileNotFoundException;
 
 	/**
 	 * Delete an existing file ("userId/filename"). 

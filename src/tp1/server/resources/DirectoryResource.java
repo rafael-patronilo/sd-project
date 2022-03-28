@@ -17,6 +17,10 @@ import tp1.serverProxies.FilesServerProxy;
 import tp1.serverProxies.RestFilesServer;
 import tp1.serverProxies.RestUsersServer;
 import tp1.serverProxies.UsersServerProxy;
+import tp1.serverProxies.exceptions.FileNotFoundException;
+import tp1.serverProxies.exceptions.IncorrectPasswordException;
+import tp1.serverProxies.exceptions.InvalidUserIdException;
+import tp1.serverProxies.exceptions.RequestTimeoutException;
 
 import java.io.File;
 import java.util.*;
@@ -27,13 +31,26 @@ import java.util.logging.Logger;
 public class DirectoryResource implements RestDirectory {
     public final static String FILE_SERVERS_PROPERTY = "fileServers";
     private UsersServerProxy usersServer = null;
-    private List<FilesServerProxy> filesServers = new ArrayList<>();
+    private PriorityQueue<FilesServerCounter> filesServers = new PriorityQueue<>();
 
     private record FileLocation(String userId, String filename) {}
+    private class FilesServerCounter implements Comparable<FilesServerCounter> {
+        FilesServerProxy server;
+        int fileCount;
+        FilesServerCounter(FilesServerProxy server){
+            this.server = server;
+            this.fileCount = 0;
+        }
+
+        @Override
+        public int compareTo(FilesServerCounter other) {
+            return Integer.compare(this.fileCount, other.fileCount);
+        }
+    }
 
     Map<FileLocation, String> locationToId = new HashMap<>();
     Map<FileLocation, FileInfo> locationToInfo = new HashMap<>();
-    Map<String, String> idToServer = new HashMap<>();
+    Map<String, FilesServerCounter> idToServer = new HashMap<>();
     long lastFileId = 0;
 
     private static Logger Log = Logger.getLogger(DirectoryResource.class.getName());
@@ -52,7 +69,9 @@ public class DirectoryResource implements RestDirectory {
                             break;
                         case FilesServer.SERVICE:
                             target = client.target(tokens[1]);
-                            filesServers.add(new RestFilesServer(target));
+                            FilesServerProxy proxy = new RestFilesServer(target, tokens[1]);
+                            FilesServerCounter counter = new FilesServerCounter(proxy);
+                            filesServers.add(counter);
                             break;
                         default:
                             break;
@@ -61,12 +80,34 @@ public class DirectoryResource implements RestDirectory {
     }
 
     @Override
-    public FileInfo writeFile(String filename, byte[] data, String userId, String password) {
+    public FileInfo writeFile(String filename, byte[] data, String userId, String password){
         Log.info("writeFile : filename = " + filename + "; userId = " + userId + "; password = " + password);
         validatePassword(userId, password);
-        FileInfo info = new FileInfo(userId, filename, userId + "/" + filename, new HashSet<>());
-        String fileId = String.valueOf(lastFileId++);
-        //TODO send the file
+        FileLocation location = new FileLocation(userId, filename);
+        String fileId = locationToId.get(location);
+        FileInfo info;
+        if(fileId == null) {
+            info = new FileInfo(userId, filename, userId + "/" + filename, new HashSet<>());
+            fileId = String.valueOf(lastFileId++);
+            FilesServerCounter counter = filesServers.poll();
+            try {
+                counter.server.writeFile(fileId, data, "");
+                counter.fileCount++;
+                filesServers.add(counter);
+            } catch (RequestTimeoutException e) {
+                //TODO handle timeouts
+            }
+
+        } else{
+            info = locationToInfo.get(location);
+            FilesServerProxy fileServer = idToServer.get(fileId).server;
+            try{
+                fileServer.writeFile(fileId, data, "");
+            } catch (RequestTimeoutException e){
+
+            }
+        }
+
         return info;
     }
 
@@ -77,8 +118,11 @@ public class DirectoryResource implements RestDirectory {
         FileLocation location =new FileLocation(filename, userId);
         locationToInfo.remove(location);
         String fileId = locationToId.remove(location);
-        idToServer.remove(fileId);
-        //TODO Send delete request
+        FilesServerCounter filesCounter = idToServer.remove(fileId);
+        filesCounter.server.tryDeleteFile(fileId, "");
+        filesServers.remove(filesCounter);
+        filesCounter.fileCount--;
+        filesServers.add(filesCounter);
     }
 
     @Override
@@ -129,21 +173,35 @@ public class DirectoryResource implements RestDirectory {
         return returning;
     }
 
-    public List<String> deletedFiles(String server, List<String> fileIds){
+    public List<String> deletedFiles(String serverUri, List<String> fileIds){
         List<String> returning = new ArrayList<>();
         for(String fileId : fileIds){
-            String fileServer = idToServer.get(fileId);
-            if(!server.equals(fileServer))
+            FilesServerProxy fileServer = idToServer.get(fileId);
+            if(fileServer == null || !serverUri.equals(fileServer.getUri()))
                 returning.add(fileId);
         }
         return returning;
     }
 
     private void validatePassword(String userId, String password){
-        //TODO implement this
+        try {
+            usersServer.getUser(userId, password);
+        } catch (InvalidUserIdException e) {
+            throw new WebApplicationException(Status.NOT_FOUND);
+        } catch (IncorrectPasswordException e) {
+            throw new WebApplicationException(Status.FORBIDDEN);
+        } catch (RequestTimeoutException e){
+            throw new WebApplicationException(/*TODO*/);
+        }
     }
 
     private void validateUser(String userId){
-        //TODO implement this
+            try {
+                if(!usersServer.hasUser(userId)){
+                    throw new WebApplicationException(Status.NOT_FOUND);
+                }
+            } catch (RequestTimeoutException e){
+                throw new WebApplicationException(Status.);
+            }
     }
 }
