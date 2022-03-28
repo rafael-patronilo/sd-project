@@ -1,8 +1,5 @@
 package tp1.serverProxies;
 
-import jakarta.ws.rs.*;
-import jakarta.ws.rs.core.MediaType;
-import tp1.serverProxies.exceptions.FileNotFoundException;
 import tp1.serverProxies.exceptions.RequestTimeoutException;
 
 public interface FilesServerProxy {

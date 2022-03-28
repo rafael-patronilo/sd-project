@@ -17,7 +17,6 @@ import tp1.serverProxies.FilesServerProxy;
 import tp1.serverProxies.RestFilesServer;
 import tp1.serverProxies.RestUsersServer;
 import tp1.serverProxies.UsersServerProxy;
-import tp1.serverProxies.exceptions.FileNotFoundException;
 import tp1.serverProxies.exceptions.IncorrectPasswordException;
 import tp1.serverProxies.exceptions.InvalidUserIdException;
 import tp1.serverProxies.exceptions.RequestTimeoutException;
@@ -104,7 +103,7 @@ public class DirectoryResource implements RestDirectory {
             try{
                 fileServer.writeFile(fileId, data, "");
             } catch (RequestTimeoutException e){
-
+                //TODO handle timeouts
             }
         }
 
@@ -176,7 +175,7 @@ public class DirectoryResource implements RestDirectory {
     public List<String> deletedFiles(String serverUri, List<String> fileIds){
         List<String> returning = new ArrayList<>();
         for(String fileId : fileIds){
-            FilesServerProxy fileServer = idToServer.get(fileId);
+            FilesServerProxy fileServer = idToServer.get(fileId).server;
             if(fileServer == null || !serverUri.equals(fileServer.getUri()))
                 returning.add(fileId);
         }
@@ -191,7 +190,7 @@ public class DirectoryResource implements RestDirectory {
         } catch (IncorrectPasswordException e) {
             throw new WebApplicationException(Status.FORBIDDEN);
         } catch (RequestTimeoutException e){
-            throw new WebApplicationException(/*TODO*/);
+            throw new WebApplicationException(Status.BAD_REQUEST);
         }
     }
 
@@ -201,7 +200,7 @@ public class DirectoryResource implements RestDirectory {
                     throw new WebApplicationException(Status.NOT_FOUND);
                 }
             } catch (RequestTimeoutException e){
-                throw new WebApplicationException(Status.);
+                throw new WebApplicationException(Status.BAD_REQUEST);
             }
     }
 }

@@ -1,7 +1,6 @@
 package tp1.serverProxies;
 
 import jakarta.ws.rs.client.WebTarget;
-import tp1.serverProxies.exceptions.FileNotFoundException;
 import tp1.serverProxies.exceptions.RequestTimeoutException;
 
 public class RestFilesServer implements FilesServerProxy{
@@ -19,7 +18,7 @@ public class RestFilesServer implements FilesServerProxy{
     }
 
     @Override
-    public void writeFile(String fileId, byte[] data, String token) throws FileNotFoundException, RequestTimeoutException {
+    public void writeFile(String fileId, byte[] data, String token) throws RequestTimeoutException {
 
     }
 
