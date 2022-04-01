@@ -9,9 +9,9 @@ import java.io.*;
 import java.util.logging.Logger;
 
 @Singleton
-public class FileResource implements RestFiles {
+public class FilesResource implements RestFiles {
     private static String STORAGE_PATH = "./storage/%s";
-    private static Logger Log = Logger.getLogger(FileResource.class.getName());
+    private static Logger Log = Logger.getLogger(FilesResource.class.getName());
 
     @Override
     public void writeFile(String fileId, byte[] data, String token) {

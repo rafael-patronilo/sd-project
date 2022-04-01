@@ -18,7 +18,7 @@ import tp1.api.User;
 public interface RestUsers {
 
 	static final String PATH="/users";
-
+	static final String PASSWORD="password";
 	/**
 	 * Creates a new user.
 	 * 
@@ -45,7 +45,7 @@ public interface RestUsers {
 	@GET
 	@Path("/{userId}")
 	@Produces(MediaType.APPLICATION_JSON)
-	User getUser(@PathParam("userId") String userId, @QueryParam("password") String password);
+	User getUser(@PathParam("userId") String userId, @QueryParam(PASSWORD) String password);
 	
 	/**
 	 * Modifies the information of a user. Values of null in any field of the user will be 
@@ -64,7 +64,7 @@ public interface RestUsers {
 	@Path("/{userId}")
 	@Consumes(MediaType.APPLICATION_JSON)
 	@Produces(MediaType.APPLICATION_JSON)
-	User updateUser(@PathParam("userId") String userId, @QueryParam("password") String password, User user);
+	User updateUser(@PathParam("userId") String userId, @QueryParam(PASSWORD) String password, User user);
 	
 	/**
 	 * Deletes the user identified by userId. The files owned by the user should be eventually removed (asynchronous
@@ -80,7 +80,7 @@ public interface RestUsers {
 	@DELETE
 	@Path("/{userId}")
 	@Produces(MediaType.APPLICATION_JSON)
-	User deleteUser(@PathParam("userId") String userId, @QueryParam("password") String password);
+	User deleteUser(@PathParam("userId") String userId, @QueryParam(PASSWORD) String password);
 	
 	/**
 	 * Returns the list of users for which the pattern is a substring of the name (of the user), case-insensitive.
@@ -93,4 +93,15 @@ public interface RestUsers {
 	@GET
 	@Produces(MediaType.APPLICATION_JSON)
 	List<User> searchUsers(@QueryParam("query") String pattern);
+
+	/**
+	 * Checks if there is a user with the given id
+	 *
+	 * @param userId the userId of the user
+	 * @return 200 and a boolean on whether the user exists
+	 */
+	@GET
+	@Produces(MediaType.TEXT_PLAIN)
+	@Path("/{userId}")
+	boolean hasUser(@PathParam("userId") String userId);
 }

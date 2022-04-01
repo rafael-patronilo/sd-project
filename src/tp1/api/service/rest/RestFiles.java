@@ -15,7 +15,6 @@ import jakarta.ws.rs.core.MediaType;
 public interface RestFiles {
 
 	static final String PATH="/files";
-
 	/**
 	 * Write a file. If the file exists, overwrites the contents.
 	 * 

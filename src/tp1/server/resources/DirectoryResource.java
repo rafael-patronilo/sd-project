@@ -61,19 +61,19 @@ public class DirectoryResource implements RestDirectory {
         MulticastServiceDiscovery.discoveryThread(
                 (tokens)-> {
                     WebTarget target;
-                    switch (tokens[0]){
-                        case UsersServer.SERVICE:
+                    switch (tokens[0]) {
+                        case UsersServer.SERVICE -> {
                             target = client.target(tokens[1]);
                             usersServer = new RestUsersServer(target);
-                            break;
-                        case FilesServer.SERVICE:
+                        }
+                        case FilesServer.SERVICE -> {
                             target = client.target(tokens[1]);
                             FilesServerProxy proxy = new RestFilesServer(target, tokens[1]);
                             FilesServerCounter counter = new FilesServerCounter(proxy);
                             filesServers.add(counter);
-                            break;
-                        default:
-                            break;
+                        }
+                        default -> {
+                        }
                     }
                 }).start();
     }
