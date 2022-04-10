@@ -5,6 +5,7 @@ import jakarta.ws.rs.client.Entity;
 import jakarta.ws.rs.client.WebTarget;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
+import tp1.api.service.rest.RestFiles;
 import tp1.serverProxies.exceptions.RequestTimeoutException;
 
 import java.net.URI;
@@ -18,7 +19,7 @@ public class RestFilesServer implements FilesServerProxy{
     private String uri;
 
     public RestFilesServer(WebTarget target, String uri){
-        this.target = target;
+        this.target = target.path(RestFiles.PATH);
         this.uri = uri;
     }
 

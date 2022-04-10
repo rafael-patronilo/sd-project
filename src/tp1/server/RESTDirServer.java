@@ -3,18 +3,14 @@ package tp1.server;
 import org.glassfish.jersey.jdkhttp.JdkHttpServerFactory;
 import org.glassfish.jersey.server.ResourceConfig;
 import tp1.server.resources.DirectoryResource;
-import tp1.serverProxies.FilesServerProxy;
-import tp1.server.resources.UsersResource;
 
 import java.net.InetAddress;
 import java.net.URI;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.logging.Logger;
 
-public class DirectoryServer {
+public class RESTDirServer {
 
-    private static Logger Log = Logger.getLogger(DirectoryServer.class.getName());
+    private static Logger Log = Logger.getLogger(RESTDirServer.class.getName());
 
 
     static {
@@ -23,7 +19,7 @@ public class DirectoryServer {
     }
 
     public static final int PORT = 8080;
-    public static final String SERVICE = "DirectoryService";
+    public static final String SERVICE = "directory";
     private static final String SERVER_URI_FMT = "http://%s:%s/rest";
 
     public static void main(String[] args) {
@@ -37,7 +33,10 @@ public class DirectoryServer {
             JdkHttpServerFactory.createHttpServer( URI.create(serverURI), config);
 
             Log.info(String.format("%s Server ready @ %s\n",  SERVICE, serverURI));
-            MulticastServiceDiscovery.announcementThread(SERVICE, serverURI).start();
+            MulticastServiceDiscovery discovery = MulticastServiceDiscovery.getInstance();
+            discovery.announcementThread(SERVICE, serverURI).start();
+            discovery.addServicesToDiscover(RESTUsersServer.SERVICE, RESTFilesServer.SERVICE);
+            discovery.discoveryThread().start();
 
 
         } catch( Exception e) {

@@ -21,7 +21,8 @@ public class FilesResource implements RestFiles {
             out.write(data);
             out.close();
         } catch (IOException e) {
-            throw new WebApplicationException(Status.BAD_REQUEST);
+            Log.info("throw BAD REQUEST: IO Exception");
+            Log.info(String.format("throw BAD REQUEST: IO Exception (%s)", e.getMessage()));
         }
         throw new WebApplicationException(Status.NO_CONTENT);
     }
@@ -34,6 +35,7 @@ public class FilesResource implements RestFiles {
             throw new WebApplicationException(Status.NO_CONTENT);
         }
         else{
+            Log.info("throw NOT FOUND: file not found");
             throw new WebApplicationException(Status.NOT_FOUND);
         }
     }
@@ -47,8 +49,10 @@ public class FilesResource implements RestFiles {
             data = in.readAllBytes();
             in.close();
         } catch (FileNotFoundException e) {
+            Log.info("throw NOT FOUND: file not found");
             throw new WebApplicationException(Status.NOT_FOUND);
         } catch (IOException e) {
+            Log.info(String.format("throw BAD REQUEST: IO Exception (%s)", e.getMessage()));
             throw new WebApplicationException(Status.BAD_REQUEST);
         }
         return data;

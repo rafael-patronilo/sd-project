@@ -12,7 +12,7 @@ import tp1.serverProxies.exceptions.InvalidUserIdException;
 public class RestUsersServer implements UsersServerProxy{
     private WebTarget target;
     public RestUsersServer(WebTarget target){
-        this.target = target;
+        this.target = target.path(RestUsers.PATH);
     }
 
     @Override

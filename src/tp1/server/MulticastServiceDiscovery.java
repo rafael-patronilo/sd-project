@@ -1,12 +1,25 @@
 package tp1.server;
 
+import javax.security.auth.callback.Callback;
 import java.io.IOException;
 import java.net.*;
+import java.util.*;
 import java.util.function.Consumer;
 import java.util.logging.Logger;
 
 public final class MulticastServiceDiscovery {
     private static Logger Log = Logger.getLogger(MulticastServiceDiscovery.class.getName());
+    private static MulticastServiceDiscovery instance;
+    public static MulticastServiceDiscovery getInstance(){
+        if(instance == null){
+            instance = new MulticastServiceDiscovery();
+        }
+        return instance;
+    }
+
+    private Map<String, Set<String>> discovered;
+    private Map<String, Consumer<String>> listeners;
+
     private MulticastServiceDiscovery() {
     }
 
@@ -16,7 +29,7 @@ public final class MulticastServiceDiscovery {
     private static final int DISCOVERY_PORT = 2266;
     private static final String DELIMITER = "\t";
 
-    public static Thread announcementThread(String service, String uri) {
+    public Thread announcementThread(String service, String uri) {
         byte[] content = String.format("%s%s%s", service, DELIMITER, uri).getBytes();
         try {
             InetAddress address = InetAddress.getByAddress(DISCOVERY_ADDRESS);
@@ -43,8 +56,33 @@ public final class MulticastServiceDiscovery {
         return null;
     }
 
-    public static Thread discoveryThread(Consumer<String[]> callback) {
+    private void initializeDiscovery(){
+        if(discovered == null)
+            discovered = new HashMap<>();
+        if(listeners == null)
+            listeners = new HashMap<>();
+    }
+
+    public void addServicesToDiscover(String... servicesToDiscover){
+        initializeDiscovery();
+        for (String serviceType: servicesToDiscover) {
+            discovered.putIfAbsent(serviceType, new HashSet<>());
+        }
+    }
+
+    public Set<String> discoveredServices(String service){
+        return discovered.get(service);
+    }
+
+    public void listenForServices(String serviceType, Consumer<String> listener){
+        discovered.putIfAbsent(serviceType, new HashSet<>());
+        listeners.put(serviceType, listener);
+
+    }
+
+    public Thread discoveryThread() {
         DatagramPacket packet = new DatagramPacket(new byte[MAX_DATAGRAM_SIZE], MAX_DATAGRAM_SIZE);
+        initializeDiscovery();
         return new Thread(
                 () -> {
                     try (var ms = new MulticastSocket(DISCOVERY_PORT)) {
@@ -57,11 +95,16 @@ public final class MulticastServiceDiscovery {
 
                                 var msg = new String(packet.getData(), 0, packet.getLength());
                                 var tokens = msg.split(DELIMITER);
-                                Log.info(String.format("FROM %s (%s) : %s\n", packet.getAddress().getCanonicalHostName(),
+                                Log.finest(String.format("FROM %s (%s) : %s\n", packet.getAddress().getCanonicalHostName(),
                                         packet.getAddress().getHostAddress(), msg));
                                 if(tokens.length == 2){
-                                    Log.info(String.format("Discovered %s at %s", tokens[0], tokens[1]));
-                                    callback.accept(tokens);
+                                    Set<String> services = discovered.get(tokens[0]);
+                                    if(services != null && services.add(tokens[1])) {
+                                        Consumer<String> listener = listeners.get(tokens[0]);
+                                        if(listener != null)
+                                            listener.accept(tokens[1]);
+                                        Log.info(String.format("Discovered %s at %s", tokens[0], tokens[1]));
+                                    }
                                 }
 
                             }catch (IOException e){

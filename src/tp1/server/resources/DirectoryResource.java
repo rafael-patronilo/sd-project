@@ -5,14 +5,13 @@ import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.client.Client;
 import jakarta.ws.rs.client.ClientBuilder;
 import jakarta.ws.rs.client.WebTarget;
-import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.Response.Status;
 import org.glassfish.jersey.client.ClientConfig;
 import tp1.api.FileInfo;
 import tp1.api.service.rest.RestDirectory;
-import tp1.server.FilesServer;
+import tp1.server.RESTFilesServer;
 import tp1.server.MulticastServiceDiscovery;
-import tp1.server.UsersServer;
+import tp1.server.RESTUsersServer;
 import tp1.serverProxies.FilesServerProxy;
 import tp1.serverProxies.RestFilesServer;
 import tp1.serverProxies.RestUsersServer;
@@ -22,7 +21,10 @@ import tp1.serverProxies.exceptions.InvalidUserIdException;
 import tp1.serverProxies.exceptions.RequestTimeoutException;
 
 import java.io.File;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.*;
+import java.util.function.Consumer;
 import java.util.logging.Logger;
 
 
@@ -58,24 +60,36 @@ public class DirectoryResource implements RestDirectory {
         FileLocation location = new FileLocation("ya", "neh");
         ClientConfig config = new ClientConfig();
         Client client = ClientBuilder.newClient(config);
-        MulticastServiceDiscovery.discoveryThread(
-                (tokens)-> {
-                    WebTarget target;
-                    switch (tokens[0]) {
-                        case UsersServer.SERVICE -> {
-                            target = client.target(tokens[1]);
-                            usersServer = new RestUsersServer(target);
-                        }
-                        case FilesServer.SERVICE -> {
-                            target = client.target(tokens[1]);
-                            FilesServerProxy proxy = new RestFilesServer(target, tokens[1]);
-                            FilesServerCounter counter = new FilesServerCounter(proxy);
-                            filesServers.add(counter);
-                        }
-                        default -> {
-                        }
-                    }
-                }).start();
+        MulticastServiceDiscovery discovery = MulticastServiceDiscovery.getInstance();
+        Consumer<String> filesListener = (String uri) ->{
+            try {
+                FilesServerProxy proxy = null;
+                if(uri.endsWith("rest"))
+                    proxy = new RestFilesServer(client.target(new URI(uri)), uri);
+                filesServers.add(new FilesServerCounter(proxy));
+            } catch (URISyntaxException e) {
+                e.printStackTrace();
+            }
+        };
+        for(String uri : discovery.discoveredServices(RESTFilesServer.SERVICE)){
+            filesListener.accept(uri);
+        }
+        discovery.listenForServices(RESTFilesServer.SERVICE, filesListener);
+        Set<String> users = discovery.discoveredServices(RESTUsersServer.SERVICE);
+        Consumer<String> userListener = (String uri)->{
+            if(usersServer == null){
+                try {
+                    usersServer = new RestUsersServer(client.target(new URI(uri)));
+                } catch (URISyntaxException e) {
+                    e.printStackTrace();
+                }
+            }
+        };
+        if(users.isEmpty()){
+            discovery.listenForServices(RESTUsersServer.SERVICE, userListener);
+        } else {
+            userListener.accept(users.iterator().next());
+        }
     }
 
     @Override
@@ -186,10 +200,13 @@ public class DirectoryResource implements RestDirectory {
         try {
             usersServer.getUser(userId, password);
         } catch (InvalidUserIdException e) {
+            Log.info("throw NOT FOUND: userId doesn't exist");
             throw new WebApplicationException(Status.NOT_FOUND);
         } catch (IncorrectPasswordException e) {
+            Log.info("throw FORBIDDEN: incorrect password");
             throw new WebApplicationException(Status.FORBIDDEN);
         } catch (RequestTimeoutException e){
+            Log.info("throw BAD REQUEST: has user request timed out");
             throw new WebApplicationException(Status.BAD_REQUEST);
         }
     }
@@ -197,9 +214,11 @@ public class DirectoryResource implements RestDirectory {
     private void validateUser(String userId){
             try {
                 if(!usersServer.hasUser(userId)){
+                    Log.info("throw NOT FOUND: userId doesn't exist");
                     throw new WebApplicationException(Status.NOT_FOUND);
                 }
             } catch (RequestTimeoutException e){
+                Log.info("throw BAD REQUEST: has user request timed out");
                 throw new WebApplicationException(Status.BAD_REQUEST);
             }
     }

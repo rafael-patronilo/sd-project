@@ -15,7 +15,7 @@ import tp1.api.service.rest.RestUsers;
 @Singleton
 public class UsersResource implements RestUsers {
 
-	private final Map<String,User> users = new HashMap<String, User>();
+	private final Map<String,User> users = new HashMap<>();
 
 	private static Logger Log = Logger.getLogger(UsersResource.class.getName());
 	
@@ -29,13 +29,13 @@ public class UsersResource implements RestUsers {
 		// Check if user data is valid
 		if(user.getUserId() == null || user.getPassword() == null || user.getFullName() == null || 
 				user.getEmail() == null) {
-			Log.info("User object invalid.");
+			Log.info("throw BAD REQUEST: User object invalid.");
 			throw new WebApplicationException( Status.BAD_REQUEST );
 		}
 		
 		// Check if userId already exists
 		if( users.containsKey(user.getUserId())) {
-			Log.info("User already exists.");
+			Log.info("throw CONFLICT: User already exists.");
 			throw new WebApplicationException( Status.CONFLICT );
 		}
 
@@ -48,9 +48,6 @@ public class UsersResource implements RestUsers {
 	@Override
 	public User getUser(String userId, String password) {
 		Log.info("getUser : user = " + userId + "; pwd = " + password);
-		if(userId == null || password == null){
-
-		}
 		return validateUser(userId, password);
 	}
 
@@ -59,7 +56,7 @@ public class UsersResource implements RestUsers {
 	public User updateUser(String userId, String password, User user) {
 		Log.info("updateUser : user = " + userId + "; pwd = " + password + " ; user = " + user);
 		if(user.getUserId() != null && user.getUserId().equals(userId)){
-			Log.info("Invalid attempt to change user id");
+			Log.info("throw BAD REQUEST: Invalid attempt to change user id");
 			throw new WebApplicationException(Status.BAD_REQUEST);
 		}
 		User oldUser = validateUser(userId, password);
@@ -68,9 +65,9 @@ public class UsersResource implements RestUsers {
 		if(user.getFullName() == null)
 			user.setFullName(oldUser.getFullName());
 		if(user.getEmail() == null)
-			user.setFullName(oldUser.getEmail());
+			user.setEmail(oldUser.getEmail());
 		if(user.getPassword() == null)
-			user.setFullName(oldUser.getPassword());
+			user.setPassword(oldUser.getPassword());
 
 		users.put(userId, user);
 		return user;
@@ -108,13 +105,13 @@ public class UsersResource implements RestUsers {
 
 		// Check if user exists
 		if( user == null ) {
-			Log.info("User does not exist.");
+			Log.info("throw NOT FOUND: User does not exist.");
 			throw new WebApplicationException( Status.NOT_FOUND );
 		}
 
 		//Check if the password is correct
 		if(!user.getPassword().equals(password)) {
-			Log.info("Password is incorrect.");
+			Log.info("throw FORBIDDEN: Password is incorrect.");
 			throw new WebApplicationException( Status.FORBIDDEN );
 		}
 
