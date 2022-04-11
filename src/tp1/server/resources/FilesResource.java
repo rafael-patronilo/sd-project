@@ -10,7 +10,7 @@ import java.util.logging.Logger;
 
 @Singleton
 public class FilesResource implements RestFiles {
-    private static String STORAGE_PATH = "./storage/%s";
+    private static String STORAGE_PATH = "./%s";
     private static Logger Log = Logger.getLogger(FilesResource.class.getName());
 
     @Override
@@ -21,7 +21,6 @@ public class FilesResource implements RestFiles {
             out.write(data);
             out.close();
         } catch (IOException e) {
-            Log.info("throw BAD REQUEST: IO Exception");
             Log.info(String.format("throw BAD REQUEST: IO Exception (%s)", e.getMessage()));
         }
         throw new WebApplicationException(Status.NO_CONTENT);

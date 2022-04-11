@@ -43,12 +43,7 @@ public class RestFilesServer implements FilesServerProxy{
 
     @Override
     public void redirectToGetFile(String fileId, String token) {
-        try {
-            URI location = new URI(String.format("%s/%s", uri, fileId));
-            Response r = Response.temporaryRedirect(location).build();
-            throw new WebApplicationException(r);
-        } catch (URISyntaxException e) {
-            Log.severe(e.getMessage());
-        }
+        Response r = Response.temporaryRedirect(target.path(fileId).getUri()).build();
+        throw new WebApplicationException(r);
     }
 }

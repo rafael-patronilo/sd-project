@@ -76,6 +76,7 @@ public class UsersResource implements RestUsers {
 
 	@Override
 	public User deleteUser(String userId, String password) {
+		//TODO delete files when user is deleted??
 		Log.info("deleteUser : user = " + userId + "; pwd = " + password);
 		User user = validateUser(userId, password);
 		users.remove(userId);
