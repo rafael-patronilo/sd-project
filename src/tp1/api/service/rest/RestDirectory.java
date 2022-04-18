@@ -146,11 +146,10 @@ public interface RestDirectory {
 			@QueryParam("password") String password);
 
 	/**
-	 * Deletes all files from a given user
+	 * Deletes all files from a given user. If the user doesn't exist, the operation is successful anyway
 	 * @param userId the user whose files are to be deleted
 	 * @param password the user's password
 	 * @return 204 if success;
-	 * 		   404 if the userId does not exist
 	 * 		   403 if the password is incorrect
 	 * 		   400 otherwise
 	 */

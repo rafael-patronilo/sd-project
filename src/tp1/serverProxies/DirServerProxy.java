@@ -13,6 +13,6 @@ public interface DirServerProxy {
      * @throws IncorrectPasswordException if the password is incorrect
      * @throws RequestTimeoutException if the response takes too long to arrive.
      */
-    void deleteDirectory(String userId, String password) throws InvalidUserIdException, IncorrectPasswordException, RequestTimeoutException;
+    void deleteDirectoryAsync(String userId, String password);
 
 }

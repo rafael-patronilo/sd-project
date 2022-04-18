@@ -5,9 +5,9 @@ import tp1.serverProxies.exceptions.RequestTimeoutException;
 public interface FilesServerProxy {
 
     /**
-     * Gets this server's uri
+     * Gets the file's direct url
      */
-    String getUri();
+    String getFileDirectUrl(String fileId);
 
     /**
      * Write a file. If the file exists, overwrites the contents.
@@ -28,7 +28,7 @@ public interface FilesServerProxy {
      * @param token - token for accessing the file server (in the first
      * project this will not be used).
      */
-    void tryDeleteFile(String fileId, String token);
+    void deleteFileAsync(String fileId, String token);
 
     /**
      * Sends a redirect to the file server.

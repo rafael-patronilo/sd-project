@@ -1,7 +1,5 @@
 package tp1.server.resources;
 
-import java.net.URI;
-import java.net.URISyntaxException;
 import java.util.*;
 import java.util.function.Consumer;
 import java.util.logging.Logger;
@@ -17,7 +15,7 @@ import tp1.api.service.rest.RestUsers;
 import tp1.server.MulticastServiceDiscovery;
 import tp1.server.RESTDirServer;
 import tp1.serverProxies.DirServerProxy;
-import tp1.serverProxies.RestDirServer;
+import tp1.serverProxies.RestDirClient;
 import tp1.serverProxies.exceptions.IncorrectPasswordException;
 import tp1.serverProxies.exceptions.InvalidUserIdException;
 import tp1.serverProxies.exceptions.RequestTimeoutException;
@@ -31,15 +29,9 @@ public class UsersResource implements RestUsers {
 	private DirServerProxy directoryServer;
 	
 	public UsersResource() {
-		ClientConfig config = new ClientConfig();
-		Client client = ClientBuilder.newClient(config);
 		Consumer<String> directoryListener = (uri) ->{
-			try {
-				if (uri.endsWith("rest")) {
-					directoryServer = new RestDirServer(client.target(new URI(uri)));
-				}
-			} catch (URISyntaxException e){
-				e.printStackTrace();
+			if (uri.endsWith("rest")) {
+				directoryServer = new RestDirClient(uri);
 			}
 		};
 		MulticastServiceDiscovery discovery = MulticastServiceDiscovery.getInstance();
@@ -61,15 +53,16 @@ public class UsersResource implements RestUsers {
 			Log.info("throw BAD REQUEST: User object invalid.");
 			throw new WebApplicationException( Status.BAD_REQUEST );
 		}
-		
-		// Check if userId already exists
-		if( users.containsKey(user.getUserId())) {
-			Log.info("throw CONFLICT: User already exists.");
-			throw new WebApplicationException( Status.CONFLICT );
-		}
+		synchronized (users) {
+			// Check if userId already exists
+			if (users.containsKey(user.getUserId())) {
+				Log.info("throw CONFLICT: User already exists.");
+				throw new WebApplicationException(Status.CONFLICT);
+			}
 
-		//Add the user to the map of users
-		users.put(user.getUserId(), user);
+			//Add the user to the map of users
+			users.put(user.getUserId(), user);
+		}
 		return user.getUserId();
 	}
 
@@ -84,37 +77,32 @@ public class UsersResource implements RestUsers {
 	@Override
 	public User updateUser(String userId, String password, User user) {
 		Log.info("updateUser : user = " + userId + "; pwd = " + password + " ; user = " + user);
-		if(user.getUserId() != null && user.getUserId().equals(userId)){
+		if(user.getUserId() != null && !user.getUserId().equals(userId)){
 			Log.info("throw BAD REQUEST: Invalid attempt to change user id");
 			throw new WebApplicationException(Status.BAD_REQUEST);
 		}
 		User oldUser = validateUser(userId, password);
 
-		user.setUserId(userId);
-		if(user.getFullName() == null)
-			user.setFullName(oldUser.getFullName());
-		if(user.getEmail() == null)
-			user.setEmail(oldUser.getEmail());
-		if(user.getPassword() == null)
-			user.setPassword(oldUser.getPassword());
+		if(user.getFullName() != null)
+			oldUser.setFullName(user.getFullName());
+		if(user.getEmail() != null)
+			oldUser.setEmail(user.getEmail());
+		if(user.getPassword() != null)
+			oldUser.setPassword(user.getPassword());
 
-		users.put(userId, user);
-		return user;
+		return oldUser;
 	}
 
 
 	@Override
 	public User deleteUser(String userId, String password) {
 		Log.info("deleteUser : user = " + userId + "; pwd = " + password);
-		User user = validateUser(userId, password);
-		try {
-			directoryServer.deleteDirectory(userId, password);
-		} catch (InvalidUserIdException | IncorrectPasswordException e) {
-			e.printStackTrace();
-		} catch (RequestTimeoutException e) {
-			//TODO handle timeout
+		User user;
+		synchronized (users) {
+			user = validateUser(userId, password);
+			users.remove(userId);
 		}
-		users.remove(userId);
+		directoryServer.deleteDirectoryAsync(userId, password);
 		return user;
 	}
 
@@ -123,9 +111,11 @@ public class UsersResource implements RestUsers {
 	public List<User> searchUsers(String pattern) {
 		Log.info("searchUsers : pattern = " + pattern);
 		List<User> returning  = new ArrayList<>();
-		for(User user : users.values()){
-			if(user.getFullName().toLowerCase().contains(pattern.toLowerCase())){
-				returning.add(user);
+		synchronized (users) {
+			for (User user : users.values()) {
+				if (user.getFullName().toLowerCase().contains(pattern.toLowerCase())) {
+					returning.add(user);
+				}
 			}
 		}
 		return returning;
@@ -136,7 +126,7 @@ public class UsersResource implements RestUsers {
 		return users.containsKey(userId);
 	}
 
-	private User validateUser(String userId, String password) {
+	private synchronized User validateUser(String userId, String password) {
 		User user = users.get(userId);
 
 		// Check if user exists

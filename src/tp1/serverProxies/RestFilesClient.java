@@ -1,5 +1,6 @@
 package tp1.serverProxies;
 
+import jakarta.ws.rs.ProcessingException;
 import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.client.Entity;
 import jakarta.ws.rs.client.WebTarget;
@@ -8,37 +9,37 @@ import jakarta.ws.rs.core.Response;
 import tp1.api.service.rest.RestFiles;
 import tp1.serverProxies.exceptions.RequestTimeoutException;
 
-import java.net.URI;
-import java.net.URISyntaxException;
 import java.util.logging.Logger;
+import static tp1.serverProxies.ClientUtils.reTry;
 
-public class RestFilesServer implements FilesServerProxy{
-    private static Logger Log = Logger.getLogger(RestFilesServer.class.getName());
+public class RestFilesClient implements FilesServerProxy{
+    private static Logger Log = Logger.getLogger(RestFilesClient.class.getName());
 
     private WebTarget target;
-    private String uri;
 
-    public RestFilesServer(WebTarget target, String uri){
-        this.target = target.path(RestFiles.PATH);
-        this.uri = uri;
+    public RestFilesClient(String uri){
+        this.target = ClientUtils.buildTarget(uri, RestFiles.PATH);
     }
 
     @Override
-    public String getUri(){
-        return uri;
+    public String getFileDirectUrl(String fileId) {
+        return target.path(fileId).getUri().toString();
     }
 
     @Override
     public void writeFile(String fileId, byte[] data, String token) throws RequestTimeoutException {
-        Response r = target
+        Response r = reTry(()-> target
                 .path(fileId)
                 .request()
-                .post(Entity.entity(data, MediaType.APPLICATION_OCTET_STREAM));
+                .post(Entity.entity(data, MediaType.APPLICATION_OCTET_STREAM)));
     }
 
     @Override
-    public void tryDeleteFile(String fileId, String token) {
-        target.path(fileId).request().async().delete();
+    public void deleteFileAsync(String fileId, String token) {
+        ClientUtils.reTryAsync(
+                ()-> target.path(fileId).request().delete(),
+                (r) -> true
+        );
     }
 
     @Override

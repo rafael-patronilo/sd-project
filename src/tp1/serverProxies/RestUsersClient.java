@@ -3,24 +3,26 @@ package tp1.serverProxies;
 import jakarta.ws.rs.client.WebTarget;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
-import jakarta.ws.rs.core.Response.Status;
 import tp1.api.User;
 import tp1.api.service.rest.RestUsers;
 import tp1.serverProxies.exceptions.IncorrectPasswordException;
 import tp1.serverProxies.exceptions.InvalidUserIdException;
+import tp1.serverProxies.exceptions.RequestTimeoutException;
 
-public class RestUsersServer implements UsersServerProxy{
+import static tp1.serverProxies.ClientUtils.reTry;
+
+public class RestUsersClient implements UsersServerProxy{
     private WebTarget target;
-    public RestUsersServer(WebTarget target){
-        this.target = target.path(RestUsers.PATH);
+    public RestUsersClient(String uri){
+        this.target = ClientUtils.buildTarget(uri, RestUsers.PATH);
     }
 
     @Override
-    public User getUser(String userId, String password) throws InvalidUserIdException, IncorrectPasswordException {
-        Response r = target.path( userId )
+    public User getUser(String userId, String password) throws InvalidUserIdException, IncorrectPasswordException, RequestTimeoutException {
+        Response r = reTry(()->target.path( userId )
                 .queryParam(RestUsers.PASSWORD, password).request()
                 .accept(MediaType.APPLICATION_JSON)
-                .get();
+                .get());
         switch (r.getStatus()) {
             case 404 -> throw new InvalidUserIdException();
             case 403 -> throw new IncorrectPasswordException();
@@ -29,10 +31,10 @@ public class RestUsersServer implements UsersServerProxy{
     }
 
     @Override
-    public boolean hasUser(String userId) {
-        Response r = target.path( userId ).request()
+    public boolean hasUser(String userId) throws RequestTimeoutException {
+        Response r = reTry(()->target.path( userId ).request()
                 .accept(MediaType.APPLICATION_JSON)
-                .get();
+                .get());
         return r.getStatus() != 404;
     }
 }

@@ -1,25 +1,28 @@
 package tp1.serverProxies;
 
 import jakarta.ws.rs.client.WebTarget;
-import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import tp1.api.service.rest.RestDirectory;
 import tp1.api.service.rest.RestUsers;
 import tp1.serverProxies.exceptions.IncorrectPasswordException;
 import tp1.serverProxies.exceptions.InvalidUserIdException;
 import tp1.serverProxies.exceptions.RequestTimeoutException;
+import static tp1.serverProxies.ClientUtils.reTry;
+import static tp1.serverProxies.ClientUtils.reTryAsync;
 
-public class RestDirServer implements DirServerProxy {
+public class RestDirClient implements DirServerProxy {
     private final WebTarget target;
 
-    public RestDirServer(WebTarget target){
-        this.target = target.path(RestDirectory.PATH);
+    public RestDirClient(String uri){
+        this.target = ClientUtils.buildTarget(uri, RestDirectory.PATH);
     }
 
     @Override
-    public void deleteDirectory(String userId, String password) throws InvalidUserIdException, IncorrectPasswordException, RequestTimeoutException {
-        Response r = target.path(userId)
+    public void deleteDirectoryAsync(String userId, String password){
+        reTryAsync(()-> target.path(userId)
                 .queryParam(RestUsers.PASSWORD, password).request()
-                .delete();
+                .delete(),
+                (r)-> r.getStatus() != 400
+        );
     }
 }
