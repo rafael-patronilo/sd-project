@@ -1,16 +1,26 @@
 package tp1.server.resources;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.util.*;
+import java.util.function.Consumer;
 import java.util.logging.Logger;
 
 import jakarta.inject.Singleton;
 import jakarta.ws.rs.WebApplicationException;
+import jakarta.ws.rs.client.Client;
+import jakarta.ws.rs.client.ClientBuilder;
 import jakarta.ws.rs.core.Response.Status;
+import org.glassfish.jersey.client.ClientConfig;
 import tp1.api.User;
 import tp1.api.service.rest.RestUsers;
+import tp1.server.MulticastServiceDiscovery;
+import tp1.server.RESTDirServer;
+import tp1.serverProxies.DirServerProxy;
+import tp1.serverProxies.RestDirServer;
+import tp1.serverProxies.exceptions.IncorrectPasswordException;
+import tp1.serverProxies.exceptions.InvalidUserIdException;
+import tp1.serverProxies.exceptions.RequestTimeoutException;
 
 @Singleton
 public class UsersResource implements RestUsers {
@@ -18,8 +28,27 @@ public class UsersResource implements RestUsers {
 	private final Map<String,User> users = new HashMap<>();
 
 	private static Logger Log = Logger.getLogger(UsersResource.class.getName());
+	private DirServerProxy directoryServer;
 	
 	public UsersResource() {
+		ClientConfig config = new ClientConfig();
+		Client client = ClientBuilder.newClient(config);
+		Consumer<String> directoryListener = (uri) ->{
+			try {
+				if (uri.endsWith("rest")) {
+					directoryServer = new RestDirServer(client.target(new URI(uri)));
+				}
+			} catch (URISyntaxException e){
+				e.printStackTrace();
+			}
+		};
+		MulticastServiceDiscovery discovery = MulticastServiceDiscovery.getInstance();
+		Set<String> discovered = discovery.discoveredServices(RESTDirServer.SERVICE);
+		if(discovered.isEmpty()){
+			discovery.listenForServices(RESTDirServer.SERVICE, directoryListener);
+		} else{
+			directoryListener.accept(discovered.iterator().next());
+		}
 	}
 		
 	@Override
@@ -76,9 +105,15 @@ public class UsersResource implements RestUsers {
 
 	@Override
 	public User deleteUser(String userId, String password) {
-		//TODO delete files when user is deleted??
 		Log.info("deleteUser : user = " + userId + "; pwd = " + password);
 		User user = validateUser(userId, password);
+		try {
+			directoryServer.deleteDirectory(userId, password);
+		} catch (InvalidUserIdException | IncorrectPasswordException e) {
+			e.printStackTrace();
+		} catch (RequestTimeoutException e) {
+			//TODO handle timeout
+		}
 		users.remove(userId);
 		return user;
 	}

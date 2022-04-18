@@ -33,7 +33,10 @@ public class RESTUsersServer {
             JdkHttpServerFactory.createHttpServer(URI.create(serverURI), config);
 
             Log.info(String.format("%s Server ready @ %s\n", SERVICE, serverURI));
-            MulticastServiceDiscovery.getInstance().announcementThread(SERVICE, serverURI).start();
+            MulticastServiceDiscovery discovery = MulticastServiceDiscovery.getInstance();
+            discovery.announcementThread(SERVICE, serverURI).start();
+            discovery.addServicesToDiscover(RESTDirServer.SERVICE);
+            discovery.discoveryThread().start();
         } catch (Exception e) {
             Log.severe(e.getMessage());
         }

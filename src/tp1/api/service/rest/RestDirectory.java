@@ -145,6 +145,18 @@ public interface RestDirectory {
 	List<FileInfo> lsFile(@PathParam("userId") String userId, 
 			@QueryParam("password") String password);
 
+	/**
+	 * Deletes all files from a given user
+	 * @param userId the user whose files are to be deleted
+	 * @param password the user's password
+	 * @return 204 if success;
+	 * 		   404 if the userId does not exist
+	 * 		   403 if the password is incorrect
+	 * 		   400 otherwise
+	 */
+	@DELETE
+	@Path("/{userId}")
+	void deleteDirectory(@PathParam("userId") String userId, @QueryParam("password") String password);
 
 
 }

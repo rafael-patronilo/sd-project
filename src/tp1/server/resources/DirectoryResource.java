@@ -4,8 +4,6 @@ import jakarta.inject.Singleton;
 import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.client.Client;
 import jakarta.ws.rs.client.ClientBuilder;
-import jakarta.ws.rs.client.WebTarget;
-import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.Response.Status;
 import org.glassfish.jersey.client.ClientConfig;
 import tp1.api.FileInfo;
@@ -22,6 +20,7 @@ import tp1.serverProxies.exceptions.IncorrectPasswordException;
 import tp1.serverProxies.exceptions.InvalidUserIdException;
 import tp1.serverProxies.exceptions.RequestTimeoutException;
 
+import javax.annotation.processing.Filer;
 import java.io.File;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -32,7 +31,6 @@ import java.util.logging.Logger;
 
 @Singleton
 public class DirectoryResource implements RestDirectory {
-    public final static String FILE_SERVERS_PROPERTY = "fileServers";
     private UsersServerProxy usersServer = null;
     private PriorityQueue<FilesServerCounter> filesServers = new PriorityQueue<>();
 
@@ -50,10 +48,18 @@ public class DirectoryResource implements RestDirectory {
             return Integer.compare(this.fileCount, other.fileCount);
         }
     }
+    private class FileReference{
+        String fileId;
+        FilesServerCounter server;
+        FileInfo info;
+        public FileReference(String fileId, FilesServerCounter server, FileInfo info) {
+            this.fileId = fileId;
+            this.server = server;
+            this.info = info;
+        }
+    }
 
-    Map<FileLocation, String> locationToId = new HashMap<>();
-    Map<FileLocation, FileInfo> locationToInfo = new HashMap<>();
-    Map<String, FilesServerCounter> idToServer = new HashMap<>();
+    Map<String, Map<String, FileReference>> directories = new HashMap<>();
     long lastFileId = 0;
 
     private static Logger Log = Logger.getLogger(DirectoryResource.class.getName());
@@ -94,64 +100,57 @@ public class DirectoryResource implements RestDirectory {
     }
 
     @Override
-    public FileInfo writeFile(String filename, byte[] data, String userId, String password){
+    public FileInfo writeFile(String filename, byte[] data, String userId, String password) {
         Log.info("writeFile : filename = " + filename + "; userId = " + userId + "; password = " + password);
         validatePassword(userId, password);
         FileLocation location = new FileLocation(userId, filename);
-        String fileId = locationToId.get(location);
-        FileInfo info;
-        if(fileId == null) {
-            info = new FileInfo(userId, filename, null, new HashSet<>());
-            fileId = String.valueOf(lastFileId++);
+        Map<String, FileReference> directory = getDirectory(userId);
+        FileReference reference = directory.get(filename);
+        if (reference == null) {
+            FileInfo info = new FileInfo(userId, filename, null, new HashSet<>());
+            String fileId = String.valueOf(lastFileId++);
             Log.info(String.format("mapped %s/%s to file id %s", userId, filename, fileId));
-            FilesServerCounter counter = filesServers.poll();
-            if(counter==null) {
-                Log.severe("write file request before file server discovered");
-                throw new WebApplicationException(Status.BAD_REQUEST);
-            }
-            locationToInfo.put(location, info);
-            locationToId.put(location, fileId);
+            FilesServerCounter counter = sendFile(data, fileId);
+            reference = new FileReference(fileId, counter, info);
+            reference.info.setFileURL(
+                    String.format("%s/%s/%s", counter.server.getUri(), RestFiles.PATH, reference.fileId));
+            directory.put(filename, reference);
+        } else {
+            FilesServerCounter counter = reference.server;
+            FilesServerProxy originalServer = counter.server;
             try {
-                counter.server.writeFile(fileId, data, "");
-                info.setFileURL(String.format("%s/%s/%s", counter.server.getUri(), RestFiles.PATH, fileId));
-                idToServer.put(fileId, counter);
-                counter.fileCount++;
-                filesServers.add(counter);
+                originalServer.writeFile(reference.fileId, data, "");
             } catch (RequestTimeoutException e) {
                 Log.severe("timed out");
-                //TODO handle timeouts
-            }
+                FilesServerCounter newServer = sendFile(data, reference.fileId, counter);
+                reference.server = newServer;
+                reference.info.setFileURL(
+                        String.format("%s/%s/%s", newServer.server.getUri(), RestFiles.PATH, reference.fileId));
 
-        } else{
-            info = locationToInfo.get(location);
-            FilesServerProxy fileServer = idToServer.get(fileId).server;
-            try{
-                fileServer.writeFile(fileId, data, "");
-                info.setFileURL(String.format("%s/%s/%s", fileServer.getUri(), RestFiles.PATH, fileId));
-            } catch (RequestTimeoutException e){
-                Log.severe("timed out");
-                //TODO handle timeouts
+                //Try to clean the file from the old server
+                filesServers.remove(counter);
+                counter.fileCount--;
+                filesServers.add(counter);
+                originalServer.tryDeleteFile(reference.fileId, "");
             }
         }
 
-        return info;
+        return reference.info;
     }
 
     @Override
     public void deleteFile(String filename, String userId, String password) {
         Log.info("deleteFile : filename = " + filename + "; userId = " + userId + "; password = " + password);
         validatePassword(userId, password);
-        FileLocation location = new FileLocation(userId, filename);
-        if(locationToInfo.remove(location) == null){
+        FileReference removed = getDirectory(userId).remove(filename);
+        if(removed == null){
             Log.info("throw NOT FOUND: user doesn't have such file");
             throw new WebApplicationException(Status.NOT_FOUND);
         }
-        String fileId = locationToId.remove(location);
-        FilesServerCounter filesCounter = idToServer.remove(fileId);
-        filesCounter.server.tryDeleteFile(fileId, "");
-        filesServers.remove(filesCounter);
-        filesCounter.fileCount--;
-        filesServers.add(filesCounter);
+        removed.server.server.tryDeleteFile(removed.fileId, "");
+        filesServers.remove(removed.server);
+        removed.server.fileCount--;
+        filesServers.add(removed.server);
     }
 
     @Override
@@ -159,15 +158,15 @@ public class DirectoryResource implements RestDirectory {
         Log.info("shareFile : filename = " + filename + "; userId = " + userId + "; userIdShare = "
                 + userIdShare + "; password = " + password);
         validateUser(userIdShare);
-        FileInfo info = locationToInfo.get(new FileLocation(userId, filename));
-        if(info == null) {
+        FileReference reference = getDirectory(userId).get(filename);
+        if(reference == null) {
             Log.info("throw NOT FOUND: user doesn't have such file");
             throw new WebApplicationException(Status.NOT_FOUND);
         }
 
         validatePassword(userId, password);
         if(!userId.equals(userIdShare))
-            info.getSharedWith().add(userIdShare);
+            reference.info.getSharedWith().add(userIdShare);
         throw new WebApplicationException(Status.NO_CONTENT);
     }
 
@@ -176,14 +175,14 @@ public class DirectoryResource implements RestDirectory {
         Log.info("unshareFile : filename = " + filename + "; userId = " + userId + "; userIdShare = "
                 + userIdShare + "; password = " + password);
         validateUser(userIdShare);
-        FileInfo info = locationToInfo.get(new FileLocation(userId, filename));
-        if(info == null) {
+        FileReference reference = getDirectory(userId).get(filename);
+        if(reference == null) {
             Log.info("throw NOT FOUND: user doesn't have such file");
             throw new WebApplicationException(Status.NOT_FOUND);
         }
 
         validatePassword(userId, password);
-        info.getSharedWith().remove(userIdShare);
+        reference.info.getSharedWith().remove(userIdShare);
         throw new WebApplicationException(Status.NO_CONTENT);
     }
 
@@ -196,19 +195,17 @@ public class DirectoryResource implements RestDirectory {
         if(!isOwner){
             validateUser(userId);
         }
-        FileLocation location = new FileLocation(userId, filename);
-        FileInfo info = locationToInfo.get(location);
-        if(info == null) {
+        FileReference reference = getDirectory(userId).get(filename);
+        if(reference == null) {
             Log.info("throw NOT FOUND: user doesn't have such file");
             throw new WebApplicationException(Status.NOT_FOUND);
         }
-        if(!info.getSharedWith().contains(accUserId) && !isOwner) {
+        if(!reference.info.getSharedWith().contains(accUserId) && !isOwner) {
             Log.info("throw FORBIDDEN: user doesn't have access to file");
             throw new WebApplicationException(Status.FORBIDDEN);
         }
-        String fileId = locationToId.get(location);
-        FilesServerProxy files = idToServer.get(fileId).server;
-        files.redirectToGetFile(fileId, "");
+        FilesServerProxy files = reference.server.server;
+        files.redirectToGetFile(reference.fileId, "");
         Log.severe("unreachable");
         throw new WebApplicationException(Status.BAD_REQUEST);
     }
@@ -218,21 +215,29 @@ public class DirectoryResource implements RestDirectory {
         Log.info("lsFile : userId = " + userId + "; password = " + password);
         validatePassword(userId, password);
         List<FileInfo> returning = new ArrayList<>();
-        for(FileInfo info : locationToInfo.values()) {
-            if(info.getOwner().equals(userId) || info.getSharedWith().contains(userId)) {
-                try {
-                    if(usersServer.hasUser(info.getOwner())) {
-                        returning.add(info);
-                    }
-                } catch (RequestTimeoutException e) {
-                    //TODO handle timeout
+        for (Map<String, FileReference> directory : directories.values()){
+            for (FileReference reference : directory.values()) {
+                FileInfo info = reference.info;
+                if (info.getOwner().equals(userId) || info.getSharedWith().contains(userId)) {
+                    returning.add(info);
                 }
             }
         }
         return returning;
     }
 
+    @Override
+    public void deleteDirectory(String userId, String password) {
+        validatePassword(userId, password);
+        Map<String, FileReference> directory = getDirectory(userId);
+        for (FileReference reference : directory.values()) {
+            reference.server.server.tryDeleteFile(reference.fileId, "");
+        }
+        directory.clear();
+    }
+
     public List<String> deletedFiles(String serverUri, List<String> fileIds){
+        /* TODO decide how to do this
         List<String> returning = new ArrayList<>();
         for(String fileId : fileIds){
             FilesServerProxy fileServer = idToServer.get(fileId).server;
@@ -240,6 +245,8 @@ public class DirectoryResource implements RestDirectory {
                 returning.add(fileId);
         }
         return returning;
+        */
+        throw new RuntimeException("Not implemented");
     }
 
     private void validatePassword(String userId, String password){
@@ -255,6 +262,38 @@ public class DirectoryResource implements RestDirectory {
             Log.info("throw BAD REQUEST: has user request timed out");
             throw new WebApplicationException(Status.BAD_REQUEST);
         }
+    }
+
+    private FilesServerCounter sendFile(byte[] data, String fileId){
+        return sendFile(data, fileId, null);
+    }
+
+    private FilesServerCounter sendFile(byte[] data, String fileId, FilesServerCounter toIgnore){
+        FilesServerCounter counter;
+        FilesServerCounter polled = filesServers.poll();
+        if(polled == null){
+            Log.severe("No file servers or all file servers timed out");
+            throw new WebApplicationException(Status.BAD_REQUEST);
+        }
+
+        if(polled == toIgnore){
+            counter = sendFile(data, fileId, toIgnore);
+        } else {
+            try {
+                polled.server.writeFile(fileId, data, "");
+                polled.fileCount++;
+                counter = polled;
+            } catch (RequestTimeoutException e) {
+                Log.severe("timed out");
+                counter = sendFile(data, fileId, toIgnore);
+            }
+        }
+        filesServers.add(polled);
+        return counter;
+    }
+
+    private Map<String, FileReference> getDirectory(String userId){
+        return directories.computeIfAbsent(userId, k -> new HashMap<>());
     }
 
     private void validateUser(String userId){
