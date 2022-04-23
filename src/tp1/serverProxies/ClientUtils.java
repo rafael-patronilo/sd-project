@@ -63,7 +63,7 @@ public final class ClientUtils {
                     sleep(RETRY_ASYNC_SLEEP);
                 } catch (InterruptedException ignored) {}
             }
-        });
+        }).start();
     }
 
     public static WebTarget buildTarget(String uri, String path){

@@ -77,10 +77,6 @@ public class UsersResource implements RestUsers {
 	@Override
 	public User updateUser(String userId, String password, User user) {
 		Log.info("updateUser : user = " + userId + "; pwd = " + password + " ; user = " + user);
-		if(user.getUserId() != null && !user.getUserId().equals(userId)){
-			Log.info("throw BAD REQUEST: Invalid attempt to change user id");
-			throw new WebApplicationException(Status.BAD_REQUEST);
-		}
 		User oldUser = validateUser(userId, password);
 
 		if(user.getFullName() != null)

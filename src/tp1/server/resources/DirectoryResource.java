@@ -219,10 +219,11 @@ public class DirectoryResource implements RestDirectory {
 
     @Override
     public void deleteDirectory(String userId, String password) {
+        Log.info("deleteDirectory : userId = " + userId + "; password = " + password);
         try {
             usersServer.getUser(userId, password);
         } catch (InvalidUserIdException ignored) {
-
+            Log.info("User does not exist; deleting anyway");
         } catch (IncorrectPasswordException e) {
             Log.info("throw FORBIDDEN: incorrect password");
             throw new WebApplicationException(Status.FORBIDDEN);
