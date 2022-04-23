@@ -1,10 +1,10 @@
-package tp1.serverProxies;
+package tp1.common.clients;
 
-import tp1.serverProxies.exceptions.IncorrectPasswordException;
-import tp1.serverProxies.exceptions.InvalidUserIdException;
-import tp1.serverProxies.exceptions.RequestTimeoutException;
+import tp1.common.exceptions.IncorrectPasswordException;
+import tp1.common.exceptions.InvalidUserIdException;
+import tp1.common.exceptions.RequestTimeoutException;
 
-public interface DirServerProxy {
+public interface DirServerClient {
     /**
      * Deletes all files from a given user
      * @param userId the user whose files are to be deleted

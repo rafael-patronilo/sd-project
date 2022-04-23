@@ -1,17 +1,19 @@
-package tp1.serverProxies;
+package tp1.client.rest;
 
 import jakarta.ws.rs.client.WebTarget;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import tp1.api.User;
 import tp1.api.service.rest.RestUsers;
-import tp1.serverProxies.exceptions.IncorrectPasswordException;
-import tp1.serverProxies.exceptions.InvalidUserIdException;
-import tp1.serverProxies.exceptions.RequestTimeoutException;
+import tp1.client.ClientUtils;
+import tp1.common.clients.UsersServerClient;
+import tp1.common.exceptions.IncorrectPasswordException;
+import tp1.common.exceptions.InvalidUserIdException;
+import tp1.common.exceptions.RequestTimeoutException;
 
-import static tp1.serverProxies.ClientUtils.reTry;
+import static tp1.client.ClientUtils.reTrySafe;
 
-public class RestUsersClient implements UsersServerProxy{
+public class RestUsersClient implements UsersServerClient {
     private WebTarget target;
     public RestUsersClient(String uri){
         this.target = ClientUtils.buildTarget(uri, RestUsers.PATH);
@@ -19,7 +21,7 @@ public class RestUsersClient implements UsersServerProxy{
 
     @Override
     public User getUser(String userId, String password) throws InvalidUserIdException, IncorrectPasswordException, RequestTimeoutException {
-        Response r = reTry(()->target.path( userId )
+        Response r = reTrySafe(()->target.path( userId )
                 .queryParam(RestUsers.PASSWORD, password).request()
                 .accept(MediaType.APPLICATION_JSON)
                 .get());
@@ -32,7 +34,7 @@ public class RestUsersClient implements UsersServerProxy{
 
     @Override
     public boolean hasUser(String userId) throws RequestTimeoutException {
-        Response r = reTry(()->target.path( userId ).request()
+        Response r = reTrySafe(()->target.path( userId ).request()
                 .accept(MediaType.APPLICATION_JSON)
                 .get());
         return r.getStatus() != 404;

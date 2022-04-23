@@ -1,5 +1,8 @@
 package tp1.server;
 
+import tp1.common.services.DirectoryService;
+import tp1.common.services.UsersService;
+
 import javax.security.auth.callback.Callback;
 import java.io.IOException;
 import java.net.*;
@@ -63,7 +66,7 @@ public final class MulticastServiceDiscovery {
             listeners = new HashMap<>();
     }
 
-    public void addServicesToDiscover(String... servicesToDiscover){
+    public void addServicesToDiscover(String[] servicesToDiscover){
         initializeDiscovery();
         for (String serviceType: servicesToDiscover) {
             discovered.putIfAbsent(serviceType, new HashSet<>());
@@ -71,10 +74,12 @@ public final class MulticastServiceDiscovery {
     }
 
     public Set<String> discoveredServices(String service){
+        initializeDiscovery();
         return discovered.get(service);
     }
 
     public void listenForServices(String serviceType, Consumer<String> listener){
+        initializeDiscovery();
         discovered.putIfAbsent(serviceType, new HashSet<>());
         listeners.put(serviceType, listener);
 
@@ -95,7 +100,8 @@ public final class MulticastServiceDiscovery {
 
                                 var msg = new String(packet.getData(), 0, packet.getLength());
                                 var tokens = msg.split(DELIMITER);
-                                Log.finest(String.format("FROM %s (%s) : %s\n", packet.getAddress().getCanonicalHostName(),
+                                Log.finest(String.format("FROM %s (%s) : %s\n",
+                                        packet.getAddress().getCanonicalHostName(),
                                         packet.getAddress().getHostAddress(), msg));
                                 if(tokens.length == 2){
                                     Set<String> services = discovered.get(tokens[0]);
@@ -122,5 +128,14 @@ public final class MulticastServiceDiscovery {
                     }
                 }
         );
+    }
+
+    public static void startDiscovery(String serviceName, String uri, String[] servicesToDiscover){
+        MulticastServiceDiscovery discovery = getInstance();
+        discovery.announcementThread(serviceName, uri).start();
+        if(servicesToDiscover != null && servicesToDiscover.length > 0) {
+            discovery.addServicesToDiscover(servicesToDiscover);
+            discovery.discoveryThread().start();
+        }
     }
 }

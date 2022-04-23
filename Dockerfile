@@ -12,4 +12,4 @@ COPY trab.props trab.props
 
 # run Discovery when starting the docker image
 CMD ["java", "-cp", "/home/sd/sd2122.jar", \
-"tp1.server.RESTUsersServer"]
+"tp1.server.rest.RESTUsersServer"]

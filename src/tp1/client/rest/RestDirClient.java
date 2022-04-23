@@ -1,16 +1,14 @@
-package tp1.serverProxies;
+package tp1.client.rest;
 
 import jakarta.ws.rs.client.WebTarget;
-import jakarta.ws.rs.core.Response;
 import tp1.api.service.rest.RestDirectory;
 import tp1.api.service.rest.RestUsers;
-import tp1.serverProxies.exceptions.IncorrectPasswordException;
-import tp1.serverProxies.exceptions.InvalidUserIdException;
-import tp1.serverProxies.exceptions.RequestTimeoutException;
-import static tp1.serverProxies.ClientUtils.reTry;
-import static tp1.serverProxies.ClientUtils.reTryAsync;
+import tp1.client.ClientUtils;
+import tp1.common.clients.DirServerClient;
 
-public class RestDirClient implements DirServerProxy {
+import static tp1.client.ClientUtils.reTryAsync;
+
+public class RestDirClient implements DirServerClient {
     private final WebTarget target;
 
     public RestDirClient(String uri){

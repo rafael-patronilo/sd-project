@@ -134,5 +134,10 @@
 				<artifactId>rt</artifactId>
 				<version>3.0.2</version>
 			</dependency>
+			<dependency>
+				<groupId>com.sun.org.apache.xml.internal</groupId>
+				<artifactId>resolver</artifactId>
+				<version>20050927</version>
+			</dependency>
 	</dependencies>
 </project>
