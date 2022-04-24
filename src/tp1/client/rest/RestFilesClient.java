@@ -14,6 +14,9 @@ import tp1.common.exceptions.RequestTimeoutException;
 import java.util.logging.Logger;
 import static tp1.client.ClientUtils.reTrySafe;
 
+/**
+ * Rest implementation for FilesServerClient
+ */
 public class RestFilesClient implements FilesServerClient {
     private static Logger Log = Logger.getLogger(RestFilesClient.class.getName());
 

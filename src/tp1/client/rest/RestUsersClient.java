@@ -13,6 +13,9 @@ import tp1.common.exceptions.RequestTimeoutException;
 
 import static tp1.client.ClientUtils.reTrySafe;
 
+/**
+ * Rest implementation for UserServerClient
+ */
 public class RestUsersClient implements UsersServerClient {
     private WebTarget target;
     public RestUsersClient(String uri){
