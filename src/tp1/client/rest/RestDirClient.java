@@ -8,6 +8,9 @@ import tp1.common.clients.DirServerClient;
 
 import static tp1.client.ClientUtils.reTryAsync;
 
+/**
+ * Rest implementation for DirServerClient
+ */
 public class RestDirClient implements DirServerClient {
     private final WebTarget target;
 

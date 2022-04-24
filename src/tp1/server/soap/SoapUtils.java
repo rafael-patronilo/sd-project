@@ -20,10 +20,11 @@ public final class SoapUtils {
 
     public static void startServer(Object resource, String serviceName, String[] servicesToDiscover, int port, Logger Log){
         try {
+            /*
             System.setProperty("com.sun.xml.ws.transport.http.client.HttpTransportPipe.dump", "true");
             System.setProperty("com.sun.xml.internal.ws.transport.http.client.HttpTransportPipe.dump", "true");
             System.setProperty("com.sun.xml.ws.transport.http.HttpAdapter.dump", "true");
-            System.setProperty("com.sun.xml.internal.ws.transport.http.HttpAdapter.dump", "true");
+            System.setProperty("com.sun.xml.internal.ws.transport.http.HttpAdapter.dump", "true");*/
 
             String ip = InetAddress.getLocalHost().getHostAddress();
             String serverURI = String.format(URI_FORMAT, ip, port);

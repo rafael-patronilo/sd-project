@@ -1,13 +1,14 @@
 package tp1.client.soap;
 
-import jakarta.xml.ws.BindingProvider;
-import jakarta.xml.ws.Service;
 import tp1.api.service.soap.DirectoryException;
 import tp1.api.service.soap.SoapDirectory;
 import tp1.client.ClientUtils;
 import tp1.common.clients.DirServerClient;
 import tp1.server.soap.SoapUtils;
 
+/**
+ * Soap implementation for DirServerClient
+ */
 public class SoapDirClient implements DirServerClient {
     private SoapDirectory server;
     public SoapDirClient(String uri){

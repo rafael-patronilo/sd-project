@@ -101,25 +101,35 @@ public class DirectoryService {
             String fileId = String.valueOf(lastFileId.getAndIncrement());
             Log.info(String.format("mapped %s/%s to file id %s", userId, filename, fileId));
             FileServerMonitor counter = sendFile(data, fileId);
+            if(counter == null) {
+                Log.info("throw RequestTimeout: out of files servers");
+                throw new RequestTimeoutException();
+            }
             reference = new FileReference(fileId, counter, info, data.length);
             reference.info.setFileURL(counter.server.getFileDirectUrl(fileId));
             directory.put(filename, reference);
         } else {
-            FileServerMonitor counter = reference.server;
-            FilesServerClient originalServer = counter.server;
+            FileServerMonitor originalCounter = reference.server;
+            FilesServerClient originalServer = originalCounter.server;
             try {
+                Log.info("Attempting to send file to its original file server");
                 int maxRetries = filesServers.size() == 1 ? ClientUtils.MAX_RETRIES : 1;
                 originalServer.writeFile(reference.fileId, data, "", maxRetries);
             } catch (RequestTimeoutException e) {
                 Log.severe("timed out");
-                reference.server = sendFile(data, reference.fileId, counter);
-                reference.info.setFileURL(counter.server.getFileDirectUrl(reference.fileId));
+                reference.server = sendFile(data, reference.fileId, originalCounter);
+                if(reference.server == null) {
+                    reference.server = originalCounter;
+                    Log.info("throw RequestTimeout: out of files servers");
+                    throw new RequestTimeoutException();
+                }
+                reference.info.setFileURL(originalCounter.server.getFileDirectUrl(reference.fileId));
 
                 //Try to clean the file from the old server
                 synchronized (filesServers) {
-                    filesServers.remove(counter);
-                    counter.usedStorage -= reference.size;
-                    filesServers.add(counter);
+                    filesServers.remove(originalCounter);
+                    originalCounter.usedStorage -= reference.size;
+                    filesServers.add(originalCounter);
                 }
                 reference.size = data.length;
                 originalServer.deleteFileAsync(reference.fileId, "");
@@ -240,12 +250,12 @@ public class DirectoryService {
         return sendFile(data, fileId, null);
     }
 
-    private synchronized FileServerMonitor sendFile(byte[] data, String fileId, FileServerMonitor toIgnore) throws UnexpectedErrorException {
+    private synchronized FileServerMonitor sendFile(byte[] data, String fileId, FileServerMonitor toIgnore) {
         FileServerMonitor counter;
         FileServerMonitor polled = filesServers.poll();
         if(polled == null){
             Log.severe("No file servers or all file servers timed out");
-            throw new UnexpectedErrorException();
+            return null;
         }
 
         if(polled == toIgnore){
@@ -256,6 +266,7 @@ public class DirectoryService {
                 if(filesServers.size() == 0 ||
                         (filesServers.size() == 1 && filesServers.peek() == toIgnore)){
                     maxRetries = ClientUtils.MAX_RETRIES;
+                    Log.info("Attempting to send file to last files server");
                 }
                 polled.server.writeFile(fileId, data, "", maxRetries);
                 polled.usedStorage += data.length;

@@ -4,6 +4,7 @@ import tp1.common.services.DirectoryService;
 import tp1.common.services.UsersService;
 import tp1.server.soap.resources.SoapUserResource;
 
+import java.util.logging.Level;
 import java.util.logging.Logger;
 
 public class SoapUsersServer {
@@ -12,12 +13,8 @@ public class SoapUsersServer {
     private static Logger Log = Logger.getLogger(SoapUsersServer.class.getName());
 
     public static void main(String[] args){
-        Log.info("Starting");
-        try {
-            SoapUtils.startServer(new SoapUserResource(),
-                    UsersService.NAME, new String[]{DirectoryService.NAME}, PORT, Log);
-        } catch (Exception e){
-            Log.severe(e.getMessage());
-        }
+        Log.setLevel(Level.INFO);
+        SoapUtils.startServer(new SoapUserResource(),
+                UsersService.NAME, new String[]{DirectoryService.NAME}, PORT, Log);
     }
 }

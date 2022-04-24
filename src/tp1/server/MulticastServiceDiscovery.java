@@ -75,7 +75,7 @@ public final class MulticastServiceDiscovery {
 
     public Set<String> discoveredServices(String service){
         initializeDiscovery();
-        return discovered.get(service);
+        return discovered.computeIfAbsent(service, (k) -> new HashSet<>());
     }
 
     public void listenForServices(String serviceType, Consumer<String> listener){

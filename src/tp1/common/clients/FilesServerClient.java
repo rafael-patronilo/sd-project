@@ -3,6 +3,9 @@ package tp1.common.clients;
 import tp1.common.exceptions.InvalidFileLocationException;
 import tp1.common.exceptions.RequestTimeoutException;
 
+/**
+ * Minimal client interface with files operations required by some services
+ */
 public interface FilesServerClient {
 
     /**

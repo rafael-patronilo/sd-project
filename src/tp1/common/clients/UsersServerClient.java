@@ -5,6 +5,9 @@ import tp1.common.exceptions.IncorrectPasswordException;
 import tp1.common.exceptions.InvalidUserIdException;
 import tp1.common.exceptions.RequestTimeoutException;
 
+/**
+ * Minimal client interface with directory operations required by some services
+ */
 public interface UsersServerClient {
     /**
      * Obtains the information on the user identified by name.

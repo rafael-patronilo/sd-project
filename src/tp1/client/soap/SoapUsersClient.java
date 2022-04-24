@@ -9,6 +9,9 @@ import tp1.common.exceptions.InvalidUserIdException;
 import tp1.common.exceptions.RequestTimeoutException;
 import tp1.server.soap.SoapUtils;
 
+/**
+ * Soap implementation for UsersServerClient
+ */
 public class SoapUsersClient implements UsersServerClient {
     SoapUsers server;
     public SoapUsersClient(String uri){
@@ -19,7 +22,11 @@ public class SoapUsersClient implements UsersServerClient {
     public synchronized User getUser(String userId, String password) throws InvalidUserIdException, IncorrectPasswordException, RequestTimeoutException {
         try {
             return ClientUtils.reTry(()->server.getUser(userId, password));
-        } catch (Exception e) {
+        } catch (RequestTimeoutException e){
+            throw e;
+        }  catch (Exception e) {
+            if(e.getMessage() == null)
+                throw new RuntimeException(e);
             switch (e.getMessage()){
                 case SoapUtils.BAD_REQUEST -> throw new RequestTimeoutException();
                 case SoapUtils.FORBIDDEN -> throw new IncorrectPasswordException();
