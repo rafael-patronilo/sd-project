@@ -6,14 +6,18 @@ import java.util.logging.Logger;
 import jakarta.inject.Singleton;
 import tp1.api.User;
 import tp1.api.service.rest.RestUsers;
+import tp1.common.services.BasicUsersService;
 import tp1.common.services.UsersService;
 
 import static tp1.server.rest.RestUtils.*;
 
+/**
+ * Rest class wrapping UsersService
+ */
 @Singleton
 public class RestUsersResource implements RestUsers {
 	private static Logger Log = Logger.getLogger(RestUsersResource.class.getName());
-	private UsersService base = new UsersService();
+	private UsersService base = new BasicUsersService();
 		
 	@Override
 	public String createUser(User user) {

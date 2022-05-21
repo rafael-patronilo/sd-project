@@ -5,16 +5,21 @@ import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.Response;
 import tp1.api.FileInfo;
 import tp1.api.service.rest.RestDirectory;
+import tp1.common.services.BasicDirectoryService;
 import tp1.common.services.DirectoryService;
 
 import java.util.*;
 import java.util.logging.Logger;
 
 import static tp1.server.rest.RestUtils.*;
+
+/**
+ * Rest class wrapping DirectoryService
+ */
 @Singleton
 public class RestDirResource implements RestDirectory {
     private static final Logger Log = Logger.getLogger(RestDirResource.class.getName());
-    private DirectoryService base = new DirectoryService();
+    private DirectoryService base = new BasicDirectoryService();
 
     @Override
     public FileInfo writeFile(String filename, byte[] data, String userId, String password) {

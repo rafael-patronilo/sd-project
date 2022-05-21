@@ -7,18 +7,22 @@ import tp1.api.service.soap.SoapDirectory;
 import tp1.common.WebRunnable;
 import tp1.common.WebSupplier;
 import tp1.common.exceptions.*;
+import tp1.common.services.BasicDirectoryService;
 import tp1.common.services.DirectoryService;
 import tp1.server.soap.SoapUtils;
 
 import java.util.List;
 import java.util.logging.Logger;
 
+/**
+ * Soap class wrapping DirectoryService
+ */
 @WebService(serviceName= SoapDirectory.NAME, targetNamespace=SoapDirectory.NAMESPACE, endpointInterface=SoapDirectory.INTERFACE)
 public class SoapDirResource implements SoapDirectory {
 
-    private DirectoryService service = new DirectoryService();
+    private DirectoryService service = new BasicDirectoryService();
 
-    private static Logger Log = Logger.getLogger(SoapUserResource.class.getName());
+    private static Logger Log = Logger.getLogger(SoapDirResource.class.getName());
 
     @Override
     public FileInfo writeFile(String filename, byte[] data, String userId, String password) throws DirectoryException {

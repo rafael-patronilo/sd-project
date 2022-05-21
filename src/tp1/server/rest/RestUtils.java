@@ -4,6 +4,7 @@ import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.Response;
 import org.glassfish.jersey.jdkhttp.JdkHttpServerFactory;
 import org.glassfish.jersey.server.ResourceConfig;
+import tp1.client.InsecureHostnameVerifier;
 import tp1.common.WebRunnable;
 import tp1.common.WebSupplier;
 import tp1.common.exceptions.*;
@@ -12,14 +13,25 @@ import tp1.common.services.UsersService;
 import tp1.server.MulticastServiceDiscovery;
 import tp1.server.rest.resources.RestUsersResource;
 
+import javax.net.ssl.HttpsURLConnection;
+import javax.net.ssl.SSLContext;
 import java.net.InetAddress;
 import java.net.URI;
 import java.util.logging.Logger;
 
+/**
+ * Utility class for Rest servers
+ */
 public final class RestUtils {
-    private static final String SERVER_URI_FMT = "http://%s:%s/rest";
+    // URI format for rest servers
+    private static final String SERVER_URI_FMT = "https://%s:%s/rest";
     private RestUtils() {}
 
+    /**
+     * Handles service operation exceptions and transforms into Rest responses
+     * @param call the operation to handle
+     * @param Log the resource's logger
+     */
     public static void handleExceptions(WebRunnable call, Logger Log){
         handleExceptions(()->{
             call.invoke();
@@ -27,6 +39,11 @@ public final class RestUtils {
         }, Log);
     }
 
+    /**
+     * Handles service operation exceptions and transforms into Rest responses
+     * @param call the operation to handle
+     * @param Log the resource's logger
+     */
     public static <T> T handleExceptions(WebSupplier<T> call, Logger Log){
         try{
             return call.invoke();
@@ -57,8 +74,17 @@ public final class RestUtils {
         }
     }
 
+    /**
+     * Starts a Rest server
+     * @param serviceName the name of this server's service
+     * @param resource the server's resource
+     * @param servicesToDiscover the other services the resource requires
+     * @param port the server's port
+     * @param Log the server's logger
+     */
     public static <T> void startServer(String serviceName, Class<T> resource, String[] servicesToDiscover, int port, Logger Log){
         try {
+            HttpsURLConnection.setDefaultHostnameVerifier(new InsecureHostnameVerifier());
             System.setProperty("java.net.preferIPv4Stack", "true");
             System.setProperty("java.util.logging.SimpleFormatter.format", "%4$s: %5$s\n");
 
@@ -67,7 +93,7 @@ public final class RestUtils {
 
             String ip = InetAddress.getLocalHost().getHostAddress();
             String serverURI = String.format(SERVER_URI_FMT, ip, port);
-            JdkHttpServerFactory.createHttpServer(URI.create(serverURI), config);
+            JdkHttpServerFactory.createHttpServer(URI.create(serverURI), config, SSLContext.getDefault());
 
             Log.info(String.format("%s Server ready @ %s\n", serviceName, serverURI));
             MulticastServiceDiscovery.startDiscovery(serviceName, serverURI, servicesToDiscover);

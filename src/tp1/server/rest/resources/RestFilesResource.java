@@ -4,14 +4,19 @@ import jakarta.inject.Singleton;
 import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.Response.Status;
 import tp1.api.service.rest.RestFiles;
+import tp1.common.services.LocalFilesService;
 import tp1.common.services.FilesService;
 
 import java.util.logging.Logger;
 import static tp1.server.rest.RestUtils.*;
+
+/**
+ * Rest class wrapping FilesService
+ */
 @Singleton
 public class RestFilesResource implements RestFiles {
     private static Logger Log = Logger.getLogger(RestFilesResource.class.getName());
-    private FilesService base = new FilesService();
+    private FilesService base = new LocalFilesService();
 
     @Override
     public void writeFile(String fileId, byte[] data, String token) {

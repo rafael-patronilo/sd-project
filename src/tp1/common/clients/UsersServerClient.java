@@ -6,7 +6,7 @@ import tp1.common.exceptions.InvalidUserIdException;
 import tp1.common.exceptions.RequestTimeoutException;
 
 /**
- * Minimal client interface with directory operations required by some services
+ * Minimal client interface with user operations required by some services
  */
 public interface UsersServerClient {
     /**

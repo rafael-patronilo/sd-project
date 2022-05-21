@@ -6,6 +6,7 @@ import tp1.api.service.soap.SoapFiles;
 import tp1.common.WebRunnable;
 import tp1.common.WebSupplier;
 import tp1.common.exceptions.*;
+import tp1.common.services.LocalFilesService;
 import tp1.common.services.FilesService;
 import tp1.server.soap.SoapUtils;
 
@@ -13,9 +14,12 @@ import java.util.logging.Logger;
 
 import static tp1.server.rest.RestUtils.handleExceptions;
 
+/**
+ * Soap class wrapping FilesService
+ */
 @WebService(serviceName= SoapFiles.NAME, targetNamespace=SoapFiles.NAMESPACE, endpointInterface=SoapFiles.INTERFACE)
 public class SoapFilesResource implements SoapFiles {
-    private FilesService base = new FilesService();
+    private FilesService base = new LocalFilesService();
     private static Logger Log = Logger.getLogger(SoapFilesResource.class.getName());
 
     @Override

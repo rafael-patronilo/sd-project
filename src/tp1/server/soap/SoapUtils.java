@@ -1,25 +1,46 @@
 package tp1.server.soap;
 
+import com.sun.net.httpserver.HttpsConfigurator;
+import com.sun.net.httpserver.HttpsServer;
 import jakarta.xml.ws.Endpoint;
+import tp1.client.InsecureHostnameVerifier;
 import tp1.common.exceptions.*;
 import tp1.server.MulticastServiceDiscovery;
 
+import javax.net.ssl.HttpsURLConnection;
+import javax.net.ssl.SSLContext;
 import java.net.InetAddress;
+import java.net.InetSocketAddress;
+import java.util.concurrent.Executors;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+/**
+ * Utility class for Soap servers
+ */
 public final class SoapUtils {
-    private static final String URI_FORMAT = "http://%s:%s/soap";
+
+    // URI format for soap servers
+    private static final String URI_FORMAT = "https://%s:%s/soap";
     private SoapUtils() {}
 
+    // error messages for soap exceptions
     public static final String CONFLICT = "Conflict";
     public static final String NOT_FOUND = "Not Found";
     public static final String BAD_REQUEST = "Bad Request";
     public static final String FORBIDDEN = "Forbidden";
 
-
+    /**
+     * Starts a soap server
+     * @param resource the resource for this server
+     * @param serviceName the server's service name
+     * @param servicesToDiscover the other services required by the resource
+     * @param port the server's port
+     * @param Log the server's logger
+     */
     public static void startServer(Object resource, String serviceName, String[] servicesToDiscover, int port, Logger Log){
         try {
+            HttpsURLConnection.setDefaultHostnameVerifier(new InsecureHostnameVerifier());
             /*
             System.setProperty("com.sun.xml.ws.transport.http.client.HttpTransportPipe.dump", "true");
             System.setProperty("com.sun.xml.internal.ws.transport.http.client.HttpTransportPipe.dump", "true");
@@ -29,17 +50,33 @@ public final class SoapUtils {
             String ip = InetAddress.getLocalHost().getHostAddress();
             String serverURI = String.format(URI_FORMAT, ip, port);
 
+            HttpsServer server = HttpsServer.create(new InetSocketAddress(ip, port), 0);
+
+            server.setExecutor(Executors.newCachedThreadPool());
+            server.setHttpsConfigurator(new HttpsConfigurator(SSLContext.getDefault()));
+
+            Endpoint endpoint = Endpoint.create(resource);
+            endpoint.publish(server.createContext("/soap"));
+
+            server.start();
+
             Endpoint.publish(serverURI.replace(ip, "0.0.0.0"), resource);
 
             MulticastServiceDiscovery.startDiscovery(serviceName, serverURI, servicesToDiscover);
 
             Log.info(String.format("%s Soap Server ready @ %s\n", serviceName, serverURI));
         } catch (Exception e){
-            Log.severe(e.getMessage());
+            //Log.severe(e.getMessage());
+            throw new RuntimeException(e);
         }
     }
 
-
+    /**
+     * Logs and exception and returns the respective message
+     * @param e the exception to log
+     * @param Log the resource's logger
+     * @return the exception appropriate message
+     */
     public static String logException(Exception e, Logger Log){
         if(e instanceof RequestTimeoutException){
             Log.info("throwing" + BAD_REQUEST + ": timed out");

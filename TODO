@@ -1,0 +1,50 @@
+# Funcionalidades
+## Segurança (máx: 3.5 valores)
+
+O objetivo desta funcionalidade é tornar o sistema seguro, impedindo que elementos não autorizados executem operações no serviço de diretório e serviço de utilizadores. Para alcançar este objetivo, a solução deve incluir os seguintes mecanismos:
+
+    utilizar canais seguros, usando TLS, com autenticação do servidor. As operações dos clientes incluem uma password para verificar que o cliente está autorizado a efetuar a operação indicada (esta última parte já se verificava nas interfaces definidas no sistema);
+    caso existam operações executadas apenas entre os servidores, garantir que estas não podem ser invocadas por um cliente – sugere-se a utilização dum segredo partilhado entre os servidores, o qual pode ser passado como parâmtero ao arrancar o programa.
+
+Tests: TBD.
+## Segurança - controlo de acessos nos servidores de ficheiros (alternativa Sb) (máx: 1.5 valor)
+
+O objetivo desta funcionalidade é garantir que operações não autorizadas não podem ser efetuadas nos servidores de ficheiros, i.e., que apenas os utilizadores autorizados podem executar operações.
+
+Nesta alternativa deve-se manter o mesmo fluxo na execução das operações, usando tokens com duração limitada para codificar as permissões.
+
+Tests: TBD.
+## Interação com um serviço externo (máx: 5 valores)
+
+O objetivo desta funcionalidade é ter um servidor de ficheiros que interaja com um serviço externo que disponibilize um serviço REST com autenticação O.Auth para armazenar o conteúdo dos ficheiros. Sugere-se a utilização do sistema Dropbox (outras opções: Google Drive, etc.).
+
+Para implementação desta funcionalidade sugere-se a utilização da biblioteca ScribeJava, como apresentado nas aulas práticas.
+
+NOTA: Apenas é necessário fazer este servidor com uma interface REST.
+
+NOTA: Deve ser possível lançar mais do que um destes servidores.
+
+NOTA: Para que seja possível testar o serviço de forma automática, usando o Tester, é necessário poder indicar ao servidor, quando arranca, que deve iniciar com o estado do serviço externo limpo. Para tal, o Tester passará como primeiro parâmetro do servidor que interage com o serviço externo o valor true para indicar que o estado anterior deve ser ignorado. Se o Tester passar o valor false, o estado gravado deve ser usado pelo servidor.
+
+Tests: TBD.
+## Mecanismo de garbage-collection (máx: 1,5 valores)
+
+O objetivo desta funcionalidade é implementar um mecanismo de limpeza de informação obsoleta no sistema com recurso a um sistema de comunicação indireta - e.g. Kafka. Assim, sugere-se que as operações de remoção passem a ser executadas propagando essa informação através do sistema Kafka.
+
+Tests: TBD.
+## Tolerância a falhas - ficheiros (máx: 1,5 valores)
+
+Implementar uma solução que permita tolerar falhas em 1 máquina em que esteja a correr um servidor de ficheiros numa configuração com pelo menos 2 servidores de ficheiros. A solução deve tolerar a falha de qualquer servidor de diretórios.
+
+A solução deve garantir que um cliente lê sempre uma versão do ficheiro tão atual quanto a versão acedida anteriormente. Para tal, tanto o servidor de diretórios como o servidor de ficheiros podem adicionar headers às resposta a enviar aos clientes, os quais serão enviados nas próximas operações executadas pelo mesmo cliente (o Tester reenviará todos os headers começados em X-DFS).
+
+Tests: TBD.
+## Tolerância a falhas - diretório (alternativa D2b) (máx: 7 valores)
+
+Implementar uma solução que permita tolerar falhas numa máquina em que esteja a correr o servidor de diretórios, replicando o servidor de diretórios com uma solução de replicação de máquina de estados, implementando o protocolo primário/secundário. A solução deve tolerar a falha de qualquer servidor, incluindo o servidor primário – para tal, deve eleger um novo primário.
+
+A solução deve garantir que um cliente lê sempre o estado dum servidor que tem uma versão tão atual quanto a versão do servidor que foi acedido anteriormente. Para tal, o servidor pode adicionar headers às resposta a enviar aos clientes, os quais serão enviados nas próximas operações executadas pelo mesmo cliente (o Tester reenviará todos os headers começados em X-DFS).
+
+Nota: O servidor deve suportar a falha de 1 servidor, estando os protocolos implementados configurados para tal.
+
+Tests: TBD.

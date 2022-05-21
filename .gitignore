@@ -3,3 +3,6 @@
 /.project
 /.idea/
 /.settings/
+*.jks
+certs/
+*.zip

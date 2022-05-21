@@ -6,17 +6,21 @@ import tp1.api.service.soap.SoapUsers;
 import tp1.api.service.soap.UsersException;
 import tp1.common.WebSupplier;
 import tp1.common.exceptions.*;
+import tp1.common.services.BasicUsersService;
 import tp1.common.services.UsersService;
 import tp1.server.soap.SoapUtils;
 
 import java.util.List;
 import java.util.logging.Logger;
 
+/**
+ * Soap class wrapping UsersService
+ */
 @WebService(serviceName= SoapUsers.NAME, targetNamespace=SoapUsers.NAMESPACE, endpointInterface=SoapUsers.INTERFACE)
 public class SoapUserResource implements SoapUsers {
     private static Logger Log = Logger.getLogger(SoapUserResource.class.getName());
 
-    private UsersService base = new UsersService();
+    private UsersService base = new BasicUsersService();
 
     @Override
     public String createUser(User user) throws UsersException {
