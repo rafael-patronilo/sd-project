@@ -7,11 +7,9 @@ import org.glassfish.jersey.server.ResourceConfig;
 import tp1.client.InsecureHostnameVerifier;
 import tp1.common.WebRunnable;
 import tp1.common.WebSupplier;
+import tp1.common.WithHeader;
 import tp1.common.exceptions.*;
-import tp1.common.services.DirectoryService;
-import tp1.common.services.UsersService;
 import tp1.server.MulticastServiceDiscovery;
-import tp1.server.rest.resources.RestUsersResource;
 
 import javax.net.ssl.HttpsURLConnection;
 import javax.net.ssl.SSLContext;
@@ -46,7 +44,19 @@ public final class RestUtils {
      */
     public static <T> T handleExceptions(WebSupplier<T> call, Logger Log){
         try{
-            return call.invoke();
+            T t = call.invoke();
+            Object toSend;
+            Response.ResponseBuilder builder = Response.ok();
+            if(t instanceof WithHeader<?> withHeader){
+                toSend = withHeader.object();
+                builder.header(withHeader.name(), withHeader.value());
+            } else{
+                toSend = t;
+            }
+            if(toSend != null){
+                builder.entity(toSend);
+            }
+            throw new WebApplicationException(builder.build());
         } catch (RequestTimeoutException e) {
             Log.info("throwing BAD REQUEST: timed out");
             throw new WebApplicationException(Response.Status.BAD_REQUEST);
@@ -82,7 +92,7 @@ public final class RestUtils {
      * @param port the server's port
      * @param Log the server's logger
      */
-    public static <T> void startServer(String serviceName, Class<T> resource, String[] servicesToDiscover, int port, Logger Log){
+    public static <T> void startServer(String serviceName, Object resource, String[] servicesToDiscover, int port, Logger Log){
         try {
             HttpsURLConnection.setDefaultHostnameVerifier(new InsecureHostnameVerifier());
             System.setProperty("java.net.preferIPv4Stack", "true");
@@ -95,8 +105,8 @@ public final class RestUtils {
             String serverURI = String.format(SERVER_URI_FMT, ip, port);
             JdkHttpServerFactory.createHttpServer(URI.create(serverURI), config, SSLContext.getDefault());
 
-            Log.info(String.format("%s Server ready @ %s\n", serviceName, serverURI));
             MulticastServiceDiscovery.startDiscovery(serviceName, serverURI, servicesToDiscover);
+            Log.info(String.format("%s Server ready @ %s\n", serviceName, serverURI));
         } catch (Exception e) {
             Log.severe(e.getMessage());
         }

@@ -2,6 +2,8 @@ package tp1.server.rest;
 
 import tp1.common.services.FilesService;
 import tp1.server.rest.resources.RestFilesResource;
+
+import java.util.logging.Level;
 import java.util.logging.Logger;
 
 public class RESTFilesServer {
@@ -11,7 +13,8 @@ public class RESTFilesServer {
 
 
     public static void main(String[] args) {
+        Log.setLevel(Level.FINEST);
         RestUtils.startServer(FilesService.NAME,
-                RestFilesResource.class, null, PORT, Log);
+                new RestFilesResource(), null, PORT, Log);
     }
 }

@@ -12,7 +12,6 @@ import javax.net.ssl.SSLContext;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.util.concurrent.Executors;
-import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
@@ -59,8 +58,6 @@ public final class SoapUtils {
             endpoint.publish(server.createContext("/soap"));
 
             server.start();
-
-            Endpoint.publish(serverURI.replace(ip, "0.0.0.0"), resource);
 
             MulticastServiceDiscovery.startDiscovery(serviceName, serverURI, servicesToDiscover);
 

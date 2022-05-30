@@ -17,8 +17,16 @@ import static tp1.server.rest.RestUtils.*;
 @Singleton
 public class RestUsersResource implements RestUsers {
 	private static Logger Log = Logger.getLogger(RestUsersResource.class.getName());
-	private UsersService base = new BasicUsersService();
-		
+	private UsersService base;
+
+	public RestUsersResource(){
+		base = new BasicUsersService();
+	}
+
+	public RestUsersResource(UsersService service){
+		base = service;
+	}
+
 	@Override
 	public String createUser(User user) {
 		return handleExceptions(()->base.createUser(user), Log);

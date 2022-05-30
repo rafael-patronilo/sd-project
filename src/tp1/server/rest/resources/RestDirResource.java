@@ -8,6 +8,7 @@ import tp1.api.service.rest.RestDirectory;
 import tp1.common.services.BasicDirectoryService;
 import tp1.common.services.DirectoryService;
 
+import java.net.http.HttpResponse;
 import java.util.*;
 import java.util.logging.Logger;
 
@@ -19,11 +20,20 @@ import static tp1.server.rest.RestUtils.*;
 @Singleton
 public class RestDirResource implements RestDirectory {
     private static final Logger Log = Logger.getLogger(RestDirResource.class.getName());
-    private DirectoryService base = new BasicDirectoryService();
+    private DirectoryService base;
+
+    public RestDirResource(){
+        base = new BasicDirectoryService();
+    }
+
+    public RestDirResource(DirectoryService service){
+        base = service;
+    }
 
     @Override
     public FileInfo writeFile(String filename, byte[] data, String userId, String password) {
-        return handleExceptions(()->base.writeFile(filename, data, userId, password), Log);
+        handleExceptions(()->base.writeFile(filename, data, userId, password), Log);
+        throw new RuntimeException("Should be unreachable");
     }
 
     @Override

@@ -14,6 +14,6 @@ public class RESTUsersServer {
 
     public static void main(String[] args) {
         RestUtils.startServer(UsersService.NAME,
-                RestUsersResource.class, new String[]{DirectoryService.NAME}, PORT, Log);
+                new RestUsersResource(), new String[]{DirectoryService.NAME}, PORT, Log);
     }
 }

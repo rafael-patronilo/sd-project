@@ -4,6 +4,7 @@ import jakarta.inject.Singleton;
 import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.Response.Status;
 import tp1.api.service.rest.RestFiles;
+import tp1.common.services.DropboxFilesService;
 import tp1.common.services.LocalFilesService;
 import tp1.common.services.FilesService;
 
@@ -16,7 +17,14 @@ import static tp1.server.rest.RestUtils.*;
 @Singleton
 public class RestFilesResource implements RestFiles {
     private static Logger Log = Logger.getLogger(RestFilesResource.class.getName());
-    private FilesService base = new LocalFilesService();
+    private FilesService base;
+
+    public RestFilesResource(){
+        base = new LocalFilesService();
+    }
+    public RestFilesResource(FilesService service){
+        base = service;
+    }
 
     @Override
     public void writeFile(String fileId, byte[] data, String token) {

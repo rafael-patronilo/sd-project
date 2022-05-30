@@ -26,7 +26,8 @@ public class SoapDirResource implements SoapDirectory {
 
     @Override
     public FileInfo writeFile(String filename, byte[] data, String userId, String password) throws DirectoryException {
-        return handleExceptions(() -> service.writeFile(filename, data, userId, password));
+        // TODO implement files server failure for soap
+        return handleExceptions(() -> service.writeFile(filename, data, userId, password).object());
     }
 
     @Override

@@ -6,6 +6,7 @@ import tp1.client.rest.RestFilesClient;
 import tp1.client.rest.RestUsersClient;
 import tp1.client.soap.SoapFilesClient;
 import tp1.client.soap.SoapUsersClient;
+import tp1.common.WithHeader;
 import tp1.common.clients.FilesServerClient;
 import tp1.common.clients.UsersServerClient;
 import tp1.common.exceptions.*;
@@ -13,6 +14,7 @@ import tp1.server.MulticastServiceDiscovery;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 import java.util.logging.Logger;
@@ -41,6 +43,7 @@ public class BasicDirectoryService implements DirectoryService {
 
         // used storage in bytes
         int usedStorage;
+
         FileServerMonitor(FilesServerClient server){
             this.server = server;
             this.usedStorage = 0;
@@ -119,7 +122,9 @@ public class BasicDirectoryService implements DirectoryService {
     }
 
     @Override
-    public FileInfo writeFile(String filename, byte[] data, String userId, String password) throws UnexpectedErrorException, RequestTimeoutException, IncorrectPasswordException, InvalidUserIdException {
+    public WithHeader<FileInfo> writeFile(String filename, byte[] data, String userId, String password)
+            throws UnexpectedErrorException, RequestTimeoutException,
+            IncorrectPasswordException, InvalidUserIdException {
         Log.info("writeFile : filename = " + filename + "; userId = " + userId + "; password = " + password);
         validatePassword(userId, password);
         Map<String, FileReference> directory = getDirectory(userId);
@@ -171,11 +176,14 @@ public class BasicDirectoryService implements DirectoryService {
             }
         }
 
-        return reference.info;
+        return new WithHeader<>(
+                DirectoryService.LAST_FILE_OP_HEADER, /*TODO*/"", reference.info);
     }
 
     @Override
-    public void deleteFile(String filename, String userId, String password) throws InvalidFileLocationException, RequestTimeoutException, IncorrectPasswordException, InvalidUserIdException {
+    public WithHeader<Object> deleteFile(String filename, String userId, String password)
+            throws InvalidFileLocationException, RequestTimeoutException,
+            IncorrectPasswordException, InvalidUserIdException {
         Log.info("deleteFile : filename = " + filename + "; userId = " + userId + "; password = " + password);
         validatePassword(userId, password);
 
@@ -193,10 +201,14 @@ public class BasicDirectoryService implements DirectoryService {
             removed.server.usedStorage -= removed.size;
             filesServers.add(removed.server);
         }
+        return new WithHeader<>(
+                DirectoryService.LAST_FILE_OP_HEADER, /*TODO*/"", null);
     }
 
     @Override
-    public void shareFile(String filename, String userId, String userIdShare, String password) throws InvalidFileLocationException, RequestTimeoutException, IncorrectPasswordException, InvalidUserIdException {
+    public void shareFile(String filename, String userId, String userIdShare, String password)
+            throws InvalidFileLocationException, RequestTimeoutException,
+            IncorrectPasswordException, InvalidUserIdException {
         Log.info("shareFile : filename = " + filename + "; userId = " + userId + "; userIdShare = "
                 + userIdShare + "; password = " + password);
         validateUser(userIdShare);
@@ -212,7 +224,9 @@ public class BasicDirectoryService implements DirectoryService {
     }
 
     @Override
-    public void unshareFile(String filename, String userId, String userIdShare, String password) throws InvalidFileLocationException, RequestTimeoutException, IncorrectPasswordException, InvalidUserIdException {
+    public void unshareFile(String filename, String userId, String userIdShare, String password)
+            throws InvalidFileLocationException, RequestTimeoutException,
+            IncorrectPasswordException, InvalidUserIdException {
         Log.info("unshareFile : filename = " + filename + "; userId = " + userId + "; userIdShare = "
                 + userIdShare + "; password = " + password);
         validateUser(userIdShare);
@@ -277,7 +291,7 @@ public class BasicDirectoryService implements DirectoryService {
     }
 
     @Override
-    public void deleteDirectory(String userId, String password) throws RequestTimeoutException, IncorrectPasswordException {
+    public WithHeader<Object> deleteDirectory(String userId, String password) throws RequestTimeoutException, IncorrectPasswordException {
         Log.info("deleteDirectory : userId = " + userId + "; password = " + password);
         try {
             usersServer.getUser(userId, password);
@@ -289,6 +303,8 @@ public class BasicDirectoryService implements DirectoryService {
             reference.server.server.deleteFileAsync(reference.fileId, "");
         }
         directory.clear();
+        return new WithHeader<>(
+                DirectoryService.LAST_FILE_OP_HEADER, /*TODO*/"", null);
     }
 
     /**
