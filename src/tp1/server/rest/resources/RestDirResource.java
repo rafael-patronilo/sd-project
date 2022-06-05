@@ -54,8 +54,8 @@ public class RestDirResource implements RestDirectory {
     }
 
     @Override
-    public byte[] getFile(String filename, String userId, String accUserId, String password) {
-        return handleExceptions(()->base.getFile(filename, userId, accUserId, password, true), Log);
+    public byte[] getFile(String filename, String userId, String accUserId, String password, long version) {
+        return handleExceptions(()->base.getFile(filename, userId, accUserId, password, true, version), Log);
     }
 
     @Override

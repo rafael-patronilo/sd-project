@@ -6,18 +6,18 @@ import tp1.client.rest.RestFilesClient;
 import tp1.client.rest.RestUsersClient;
 import tp1.client.soap.SoapFilesClient;
 import tp1.client.soap.SoapUsersClient;
+import tp1.common.ServerUtils;
 import tp1.common.clients.FilesServerClient;
 import tp1.common.clients.UsersServerClient;
 import tp1.common.exceptions.*;
 import tp1.kafka.KafkaPublisher;
+import tp1.kafka.KafkaSubscriber;
 import tp1.kafka.KafkaUtils;
-import tp1.kafka.operations.Create;
-import tp1.kafka.operations.Delete;
-import tp1.kafka.operations.Edit;
-import tp1.kafka.operations.Move;
+import tp1.kafka.operations.*;
 import tp1.kafka.sync.SyncPoint;
 import tp1.server.MulticastServiceDiscovery;
 
+import java.io.File;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
@@ -32,6 +32,7 @@ public class BasicDirectoryService implements DirectoryService {
     private static final Logger Log = Logger.getLogger(BasicDirectoryService.class.getName());
 
     private final SyncPoint<String> syncPoint = SyncPoint.getInstance();
+    private static final List<String> TOPICS = Arrays.asList(KafkaUtils.DIR_FILES_TOPIC);
     private final KafkaPublisher publisher;
 
     private final String replicaId = "yes";
@@ -42,6 +43,8 @@ public class BasicDirectoryService implements DirectoryService {
 
     // Maps the userId to the respective (concurrent safe) directory
     private final Map<String, Map<String, FileReference>> directories = new HashMap<>();
+
+    private KafkaSubscriber subscriber;
 
     // The file id for the next file written
     private AtomicLong nextFileId = new AtomicLong();
@@ -158,6 +161,9 @@ public class BasicDirectoryService implements DirectoryService {
             userListener.accept(users.iterator().next());
         }
         publisher = KafkaPublisher.createPublisher(KafkaUtils.KAFKA_BROKERS);
+        subscriber = KafkaSubscriber
+                .createSubscriber(KafkaUtils.KAFKA_BROKERS, TOPICS, KafkaUtils.FROM_BEGINNING);
+        subscriber.startWithOp(false, this::executeOperation);
     }
 
     @Override
@@ -185,27 +191,20 @@ public class BasicDirectoryService implements DirectoryService {
             Log.info("Replicas picked");
 
             reference = new FileReference(fileId, replicas, info, data.length);
+            reference.info.setFileURL(reference.servers[0].server.getFileDirectUrl(fileId));
 
-            publisher.publish(KafkaUtils.DIR_FILES_TOPIC, replicaId, new Create(userId, filename, fileId, reference.size,
-                    reference.servers[0].server.getURI(), reference.URIs()));
-
-            Log.info("Operation published");
-            reference.info.setFileURL(counter.server.getFileDirectUrl(fileId));
-            directory.put(filename, reference);
+            long version = publisher.publish(KafkaUtils.DIR_FILES_TOPIC, replicaId, new Create(userId, filename, fileId, reference.size,
+                    reference.servers[0].server.getURI(), reference.URIs(), info));
+            syncPoint.waitForVersion(version);
         } else { // case file already on the directory (overwrite)
             FileServerMonitor sentTo = sendFileBack(data, reference);
             // sizeDifference = newSize - oldSize (=) newSize = oldSize + sizeDifference
             int sizeDifference = data.length - reference.size;
             // Report edit
-            publisher.publish(KafkaUtils.DIR_FILES_TOPIC, replicaId, new Edit(reference.info.getOwner(),
+            long version = publisher.publish(KafkaUtils.DIR_FILES_TOPIC, replicaId, new Edit(reference.info.getOwner(),
                     reference.info.getFilename(), reference.fileId,
                     sizeDifference, sentTo.server.getURI()));
-            //TODO replace with wait for version?
-            //update sizes
-            reference.size += sizeDifference;
-            for(FileServerMonitor monitor : reference.servers){
-                monitor.usedStorage += sizeDifference;
-            }
+            syncPoint.waitForVersion(version);
         }
 
         return reference.info;
@@ -219,21 +218,15 @@ public class BasicDirectoryService implements DirectoryService {
         validatePassword(userId, password);
 
         // delete the file on the directory
-        FileReference removed = getDirectory(userId).remove(filename);
-        if(removed == null){
+        FileReference removing = getDirectory(userId).get(filename);
+        if(removing == null){
             Log.info("throw InvalidFilenameException: user doesn't have such file");
             throw new InvalidFileLocationException();
         }
 
         // delete the file on the file server (asynchronously)
-        publisher.publish(KafkaUtils.DIR_FILES_TOPIC, replicaId, new Delete(userId, filename, removed.fileId));
-        synchronized (filesServers) {
-            for(FileServerMonitor server : removed.servers) {
-                filesServers.remove(server);
-                server.usedStorage -= removed.size;
-                filesServers.add(server);
-            }
-        }
+        long version = publisher.publish(KafkaUtils.DIR_FILES_TOPIC, replicaId, new Delete(userId, filename, removing.fileId));
+        syncPoint.waitForVersion(version);
     }
 
     @Override
@@ -250,8 +243,11 @@ public class BasicDirectoryService implements DirectoryService {
         }
 
         validatePassword(userId, password);
-        if(!userId.equals(userIdShare))
-            reference.info.getSharedWith().add(userIdShare);
+        if(!userId.equals(userIdShare)) {
+            long version = publisher.publish(KafkaUtils.DIR_FILES_TOPIC, replicaId,
+                    new Share(userId, filename, userIdShare));
+            syncPoint.waitForVersion(version);
+        }
     }
 
     @Override
@@ -268,11 +264,17 @@ public class BasicDirectoryService implements DirectoryService {
         }
 
         validatePassword(userId, password);
-        reference.info.getSharedWith().remove(userIdShare);
+        if(!userId.equals(userIdShare)) {
+            long version = publisher.publish(KafkaUtils.DIR_FILES_TOPIC, replicaId,
+                    new Unshare(userId, filename, userIdShare));
+            syncPoint.waitForVersion(version);
+        }
     }
 
     @Override
-    public byte[] getFile(String filename, String userId, String accUserId, String password, boolean tryRedirect) throws InvalidFileLocationException, NoAccessException, RequestTimeoutException, IncorrectPasswordException, InvalidUserIdException {
+    public byte[] getFile(String filename, String userId, String accUserId, String password,
+                          boolean tryRedirect, long version) throws InvalidFileLocationException,
+            NoAccessException, RequestTimeoutException, IncorrectPasswordException, InvalidUserIdException {
         Log.info("getFile : filename = " + filename + "; userId = " + userId + "; accUserId = "
                 + accUserId + "; password = " + password);
         validatePassword(accUserId, password);
@@ -295,12 +297,12 @@ public class BasicDirectoryService implements DirectoryService {
         // redirecting to the files server, if possible, is faster than transferring the file
         if(tryRedirect) {
             Log.info("Attempting to redirect to files server");
-            files.redirectToGetFile(reference.fileId, "");
+            files.redirectToGetFile(reference.fileId, "", version);
             // If the redirect succeeds, execution won't reach this point
             Log.info("Failed to redirect");
         }
 
-        return files.getFile(reference.fileId, "");
+        return files.getFile(reference.fileId, "", version);
     }
 
     @Override
@@ -334,7 +336,6 @@ public class BasicDirectoryService implements DirectoryService {
             publisher.publish(KafkaUtils.DIR_FILES_TOPIC, replicaId,
                     new Delete(reference.info.getOwner(), reference.info.getFilename(), reference.fileId));
         }
-        directory.clear();
     }
 
     /**
@@ -376,9 +377,10 @@ public class BasicDirectoryService implements DirectoryService {
         originalCounters[firstServer] = sentTo;
 
         //Report that the file was moved from a server to another
-        publisher.publish(KafkaUtils.DIR_FILES_TOPIC, replicaId, new Move(reference.info.getOwner(),
+        long version = publisher.publish(KafkaUtils.DIR_FILES_TOPIC, replicaId, new Move(reference.info.getOwner(),
                 reference.info.getFilename(), reference.fileId,
                 sentTo.server.getURI(), reference.URIs()));
+        syncPoint.setVersion(version);
 
 
         // TODO replace with wait for version?
@@ -488,6 +490,72 @@ public class BasicDirectoryService implements DirectoryService {
                 Log.info("throw RequestTimeoutException: hasUser request timed out");
                 throw new RequestTimeoutException();
             }
+    }
+
+    private FileServerMonitor serverFromURI(String uri){
+        for(FileServerMonitor monitor : filesServers){
+            if(monitor.server.getURI().equals(uri)){
+                return monitor;
+            }
+        }
+         return null;
+    }
+
+    private FileServerMonitor[] getReplicaArray(Set<String> uris, String original){
+        FileServerMonitor[] servers = new FileServerMonitor[uris.size()];
+        int i = 0;
+        for(String uri : uris){
+            FileServerMonitor monitor = serverFromURI(uri);
+            if(uri.equals(original)){
+                servers[i++] = servers[0];
+                servers[0] = monitor;
+            } else{
+                servers[i++] = monitor;
+            }
+        }
+        return servers;
+    }
+
+    private void executeOperation(Operation operation, long offset){
+        Log.info("Operation received: " + operation.opName());
+        String filename = operation.filename();
+        String userId = operation.userId();
+        int sizeDifference = operation.sizeDifference();
+        FileReference reference;
+        if(operation instanceof Create op){
+            reference = new FileReference(op.fileId(), getReplicaArray(op.replicas(), op.original()),
+                    op.fileInfo(), sizeDifference);
+            if(sizeDifference != 0){
+                for(FileServerMonitor monitor : reference.servers){
+                    monitor.usedStorage += sizeDifference;
+                }
+            }
+            getDirectory(userId).put(filename, reference);
+
+        } else{
+            reference = getDirectory(userId).get(filename);
+            if(operation instanceof Delete){
+                sizeDifference = reference.size;
+            }
+            reference.size += operation.sizeDifference();
+            if(sizeDifference != 0){
+                for(FileServerMonitor monitor : reference.servers){
+                    monitor.usedStorage += sizeDifference;
+                }
+            }
+            if(operation instanceof Move op){
+                reference.servers = getReplicaArray(op.replicas(), op.original());
+                reference.info.setFileURL(reference.servers[0].server.getFileDirectUrl(op.fileId()));
+            } else if (operation instanceof Delete){
+                getDirectory(userId).remove(filename);
+            } else if(operation instanceof Share op){
+                reference.info.getSharedWith().add(op.sharingWith());
+            } else if(operation instanceof Unshare op){
+                reference.info.getSharedWith().remove(op.sharedWith());
+            }
+        }
+        syncPoint.setVersion(offset);
+        Log.info("Version set to " + offset);
     }
 
 }

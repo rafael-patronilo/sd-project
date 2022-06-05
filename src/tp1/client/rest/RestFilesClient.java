@@ -10,6 +10,7 @@ import tp1.client.ClientUtils;
 import tp1.common.clients.FilesServerClient;
 import tp1.common.exceptions.InvalidFileLocationException;
 import tp1.common.exceptions.RequestTimeoutException;
+import tp1.common.services.DirectoryService;
 
 import java.util.logging.Logger;
 import static tp1.client.ClientUtils.reTrySafe;
@@ -56,16 +57,29 @@ public class RestFilesClient implements FilesServerClient {
 
     @Override
     public void redirectToGetFile(String fileId, String token) {
-        Response r = Response.temporaryRedirect(target.path(fileId).getUri()).build();
+        redirectToGetFile(fileId, token, -1L);
+    }
+
+    @Override
+    public void redirectToGetFile(String fileId, String token, long version) {
+        Response r = Response.temporaryRedirect(target.path(fileId).getUri())
+                .header(DirectoryService.VERSION_HEADER, version).build();
         throw new WebApplicationException(r);
     }
 
     @Override
     public byte[] getFile(String fileId, String token) throws RequestTimeoutException, InvalidFileLocationException {
+        return getFile(fileId, token, -1L);
+    }
+
+
+    @Override
+    public byte[] getFile(String fileId, String token, long version) throws RequestTimeoutException, InvalidFileLocationException {
         Response r = reTrySafe(()-> target
                 .path(fileId)
                 .request()
                 .accept(MediaType.APPLICATION_OCTET_STREAM)
+                .header(DirectoryService.VERSION_HEADER, version)
                 .get());
         return r.readEntity(byte[].class);
     }

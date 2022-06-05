@@ -52,7 +52,7 @@ public class SoapDirResource implements SoapDirectory {
 
     @Override
     public byte[] getFile(String filename, String userId, String accUserId, String password) throws DirectoryException {
-        return handleExceptions(() -> service.getFile(filename, userId, accUserId, password, false));
+        return handleExceptions(() -> service.getFile(filename, userId, accUserId, password, false, -1L));
     }
 
     @Override

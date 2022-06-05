@@ -17,7 +17,6 @@ public class RESTDirServer {
 
     public static void main(String[] args) {
         Log.setLevel(Level.FINEST);
-        System.out.println("Hello");
         RestUtils.startServer(DirectoryService.NAME,
                 RestDirResource::new, new String[]{UsersService.NAME, FilesService.NAME}, PORT, Log,
                 List.of(new VersionHeaderFilter()));

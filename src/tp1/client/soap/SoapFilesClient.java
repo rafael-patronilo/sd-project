@@ -60,11 +60,21 @@ public class SoapFilesClient implements FilesServerClient {
 
     @Override
     public void redirectToGetFile(String fileId, String token) {
+        redirectToGetFile(fileId, token, -1L);
+    }
+
+    @Override
+    public void redirectToGetFile(String fileId, String token, long version) {
         //Not implemented on soap
     }
 
     @Override
-    public synchronized byte[] getFile(String fileId, String token) throws RequestTimeoutException, InvalidFileLocationException {
+    public byte[] getFile(String fileId, String token) throws RequestTimeoutException, InvalidFileLocationException {
+        return getFile(fileId, token, -1L);
+    }
+
+    @Override
+    public synchronized byte[] getFile(String fileId, String token, long version) throws RequestTimeoutException, InvalidFileLocationException {
         try {
             return ClientUtils.reTry(()->{
                 return server.getFile(fileId, token);

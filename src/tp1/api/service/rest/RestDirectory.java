@@ -120,7 +120,8 @@ public interface RestDirectory {
 	@Path("/{userId}/{filename}")
 	@Produces(MediaType.APPLICATION_OCTET_STREAM)
 	byte[] getFile(@PathParam("filename") String filename, @PathParam("userId") String userId, 
-			@QueryParam("accUserId") String accUserId, @QueryParam("password") String password);
+			@QueryParam("accUserId") String accUserId, @QueryParam("password") String password,
+				   @HeaderParam(DirectoryService.VERSION_HEADER) @DefaultValue("-1") long version);
 
 	/**
 	 * List the files a given user ("userId") has access to - this includes both its own files

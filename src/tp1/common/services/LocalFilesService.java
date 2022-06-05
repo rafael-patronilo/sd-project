@@ -76,7 +76,6 @@ public class LocalFilesService implements FilesService {
             FileOutputStream out = new FileOutputStream(pathTo(fileId));
             out.write(data);
             out.close();
-            files.add(fileId);
         } catch (IOException e) {
             Log.info(String.format("throw UnexpectedError: IO Exception (%s)", e.getMessage()));
             throw new UnexpectedErrorException();
@@ -91,7 +90,6 @@ public class LocalFilesService implements FilesService {
             Log.info("throw InvalidFileLocation: file not found");
             throw new InvalidFileLocationException();
         }
-        files.remove(fileId);
     }
 
     @Override
@@ -141,11 +139,12 @@ public class LocalFilesService implements FilesService {
 
     private void executeOperation(Operation operation, long offset){
         String uri = ServerUtils.getUri();
-        Log.info("Operation received: " + operation.toString());
+        Log.info("Operation received: " + operation.opName());
         if(operation instanceof FileOperation){
             if(operation instanceof Create op){
-                if(!op.original().equals(uri) &&
-                        op.replicas().contains(uri)) {
+                if (op.original().equals(uri)){
+                    files.add(op.fileId());
+                } else if(op.replicas().contains(uri)) {
                     replicate(op.original(), op.fileId());
                     files.add(op.fileId());
                 }

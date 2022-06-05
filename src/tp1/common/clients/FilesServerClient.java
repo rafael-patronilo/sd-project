@@ -51,6 +51,16 @@ public interface FilesServerClient {
     void redirectToGetFile(String fileId, String token);
 
     /**
+     * Sends a redirect to the file server. Not always implemented
+     *
+     * @param fileId - unique id of the file.
+     * @param token - token for accessing the file server (in the first
+     * project this will not be used).
+     *
+     */
+    void redirectToGetFile(String fileId, String token, long version);
+
+    /**
      * Gets the file specified by fileId
      * @param fileId - unique id of the file.
      * @param token - token for accessing the file server (in the first
@@ -61,5 +71,17 @@ public interface FilesServerClient {
      * @throws InvalidFileLocationException if the server has no file with the given id.
      */
     byte[] getFile(String fileId, String token) throws RequestTimeoutException, InvalidFileLocationException;
+
+    /**
+     * Gets the file specified by fileId
+     * @param fileId - unique id of the file.
+     * @param token - token for accessing the file server (in the first
+     * project this will not be used).
+     * @return the file's contents
+     *
+     * @throws RequestTimeoutException if the response takes too long to arrive.
+     * @throws InvalidFileLocationException if the server has no file with the given id.
+     */
+    byte[] getFile(String fileId, String token, long version) throws RequestTimeoutException, InvalidFileLocationException;
 
 }

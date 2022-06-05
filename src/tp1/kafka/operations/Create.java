@@ -1,5 +1,7 @@
 package tp1.kafka.operations;
 
+import tp1.api.FileInfo;
+
 import java.util.Objects;
 import java.util.Set;
 
@@ -11,6 +13,8 @@ public final class Create implements FileOperation, Operation {
     private String fileId;
     private String original;
     private Set<String> replicas;
+
+    private FileInfo fileInfo;
 
     private int size;
     public Create(
@@ -24,7 +28,8 @@ public final class Create implements FileOperation, Operation {
             // URI of a server that already contains the file
             String original,
             // The set of servers that should replicate this file. Must contain original
-            Set<String> replicas
+            Set<String> replicas,
+            FileInfo fileInfo
     ) {
         this.userId = userId;
         this.filename = filename;
@@ -32,6 +37,7 @@ public final class Create implements FileOperation, Operation {
         this.size = size;
         this.original = original;
         this.replicas = replicas;
+        this.fileInfo = fileInfo;
     }
 
     @Override
@@ -59,6 +65,10 @@ public final class Create implements FileOperation, Operation {
 
     public Set<String> replicas() {
         return replicas;
+    }
+
+    public FileInfo fileInfo(){
+        return fileInfo;
     }
 
     @Override

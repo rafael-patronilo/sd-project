@@ -17,7 +17,7 @@ public class VersionHeaderFilter implements ContainerResponseFilter {
 
     @Override
     public void filter(ContainerRequestContext containerRequestContext,
-                       ContainerResponseContext containerResponseContext) throws IOException {
+                       ContainerResponseContext containerResponseContext) {
         containerResponseContext.getHeaders().add(DirectoryService.VERSION_HEADER, syncPoint.getVersion());
     }
 }
