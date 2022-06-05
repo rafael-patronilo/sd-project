@@ -2,16 +2,11 @@ package tp1.api.service.rest;
 
 import java.util.*;
 
-import jakarta.ws.rs.Consumes;
-import jakarta.ws.rs.DELETE;
-import jakarta.ws.rs.GET;
-import jakarta.ws.rs.POST;
-import jakarta.ws.rs.Path;
-import jakarta.ws.rs.PathParam;
-import jakarta.ws.rs.Produces;
-import jakarta.ws.rs.QueryParam;
+import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import tp1.api.FileInfo;
+import tp1.common.services.DirectoryService;
+import tp1.kafka.operations.Operation;
 
 @Path(RestDirectory.PATH)
 public interface RestDirectory {
@@ -156,6 +151,4 @@ public interface RestDirectory {
 	@DELETE
 	@Path("/{userId}")
 	void deleteDirectory(@PathParam("userId") String userId, @QueryParam("password") String password);
-
-
 }

@@ -32,8 +32,7 @@ public class RestDirResource implements RestDirectory {
 
     @Override
     public FileInfo writeFile(String filename, byte[] data, String userId, String password) {
-        handleExceptions(()->base.writeFile(filename, data, userId, password), Log);
-        throw new RuntimeException("Should be unreachable");
+        return handleExceptions(()->base.writeFile(filename, data, userId, password), Log);
     }
 
     @Override

@@ -4,6 +4,7 @@ import com.sun.net.httpserver.HttpsConfigurator;
 import com.sun.net.httpserver.HttpsServer;
 import jakarta.xml.ws.Endpoint;
 import tp1.client.InsecureHostnameVerifier;
+import tp1.common.ServerUtils;
 import tp1.common.exceptions.*;
 import tp1.server.MulticastServiceDiscovery;
 
@@ -12,6 +13,8 @@ import javax.net.ssl.SSLContext;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.util.concurrent.Executors;
+import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.logging.Logger;
 
 /**
@@ -31,13 +34,13 @@ public final class SoapUtils {
 
     /**
      * Starts a soap server
-     * @param resource the resource for this server
+     * @param resourceSupplier a function that creates the resource for this server
      * @param serviceName the server's service name
-     * @param servicesToDiscover the other services required by the resource
+     * @param servicesToDiscover the other services required by the resourceSupplier
      * @param port the server's port
      * @param Log the server's logger
      */
-    public static void startServer(Object resource, String serviceName, String[] servicesToDiscover, int port, Logger Log){
+    public static void startServer(Supplier<Object> resourceSupplier, String serviceName, String[] servicesToDiscover, int port, Logger Log){
         try {
             HttpsURLConnection.setDefaultHostnameVerifier(new InsecureHostnameVerifier());
             /*
@@ -48,13 +51,14 @@ public final class SoapUtils {
 
             String ip = InetAddress.getLocalHost().getHostAddress();
             String serverURI = String.format(URI_FORMAT, ip, port);
+            ServerUtils.setUri(serverURI);
 
             HttpsServer server = HttpsServer.create(new InetSocketAddress(ip, port), 0);
 
             server.setExecutor(Executors.newCachedThreadPool());
             server.setHttpsConfigurator(new HttpsConfigurator(SSLContext.getDefault()));
 
-            Endpoint endpoint = Endpoint.create(resource);
+            Endpoint endpoint = Endpoint.create(resourceSupplier.get());
             endpoint.publish(server.createContext("/soap"));
 
             server.start();

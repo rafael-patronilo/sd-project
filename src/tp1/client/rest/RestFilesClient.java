@@ -21,14 +21,21 @@ public class RestFilesClient implements FilesServerClient {
     private static Logger Log = Logger.getLogger(RestFilesClient.class.getName());
 
     private WebTarget target;
+    private String uri;
 
-    public RestFilesClient(String uri){
+    public RestFilesClient(String uri) {
+        this.uri = uri;
         this.target = ClientUtils.buildTarget(uri, RestFiles.PATH);
     }
 
     @Override
     public String getFileDirectUrl(String fileId) {
         return target.path(fileId).getUri().toString();
+    }
+
+    @Override
+    public String getURI() {
+        return uri;
     }
 
     @Override

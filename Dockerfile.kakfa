@@ -1,0 +1,3 @@
+FROM smduarte/sd2122-kafka:original
+RUN sed -i s/INFO/DEBUG/g /opt/kafka_2.12-2.8.1/config/connect-log4j.properties
+CMD ./start.sh

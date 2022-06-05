@@ -15,6 +15,6 @@ public class RESTFilesServer {
     public static void main(String[] args) {
         Log.setLevel(Level.FINEST);
         RestUtils.startServer(FilesService.NAME,
-                new RestFilesResource(), null, PORT, Log);
+                RestFilesResource::new, null, PORT, Log);
     }
 }

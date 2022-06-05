@@ -91,7 +91,7 @@ public class DropboxFilesService implements FilesService{
     }
 
     @Override
-    public byte[] getFile(String fileId, String token) throws UnexpectedErrorException, InvalidFileLocationException {
+    public byte[] getFile(String fileId, String token, long version) throws UnexpectedErrorException, InvalidFileLocationException {
         DownloadV1Args args = new DownloadV1Args(pathToFile(fileId));
         DownloadResponse r = contentDownload(DownloadV1Args.URL, args);
 

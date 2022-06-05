@@ -6,15 +6,20 @@ import tp1.client.rest.RestFilesClient;
 import tp1.client.rest.RestUsersClient;
 import tp1.client.soap.SoapFilesClient;
 import tp1.client.soap.SoapUsersClient;
-import tp1.common.WithHeader;
 import tp1.common.clients.FilesServerClient;
 import tp1.common.clients.UsersServerClient;
 import tp1.common.exceptions.*;
+import tp1.kafka.KafkaPublisher;
+import tp1.kafka.KafkaUtils;
+import tp1.kafka.operations.Create;
+import tp1.kafka.operations.Delete;
+import tp1.kafka.operations.Edit;
+import tp1.kafka.operations.Move;
+import tp1.kafka.sync.SyncPoint;
 import tp1.server.MulticastServiceDiscovery;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 import java.util.logging.Logger;
@@ -23,7 +28,13 @@ import java.util.logging.Logger;
  * Implementation of server operations for Directory services
  */
 public class BasicDirectoryService implements DirectoryService {
+
     private static final Logger Log = Logger.getLogger(BasicDirectoryService.class.getName());
+
+    private final SyncPoint<String> syncPoint = SyncPoint.getInstance();
+    private final KafkaPublisher publisher;
+
+    private final String replicaId = "yes";
     private UsersServerClient usersServer = null;
 
     // Priority queue with file servers prioritizing the ones with less occupied space
@@ -63,19 +74,46 @@ public class BasicDirectoryService implements DirectoryService {
         String fileId;
 
         // server where it is stored
-        FileServerMonitor server;
+        FileServerMonitor[] servers;
 
         // meta information about the file
         FileInfo info;
 
+        // the last replica where an operation was performed
+        int lastReplica = 0;
+
         // size in bytes of the file
         int size;
 
-        public FileReference(String fileId, FileServerMonitor server, FileInfo info, int size) {
+        public FileReference(String fileId, FileServerMonitor[] servers, FileInfo info, int size) {
             this.fileId = fileId;
-            this.server = server;
+            this.servers = servers;
             this.info = info;
             this.size = size;
+        }
+
+        /**
+         * Picks the replica next to lastReplica
+         *
+         * This is used to distribute packet load amongst the replicas and to move to the next
+         * replica when one fails.
+         * @return the next replica
+         */
+        int shitfReplica(){
+            lastReplica = (lastReplica + 1) % servers.length;
+            return lastReplica;
+        }
+
+        /**
+         * Returns a Set with the URI of each replica
+         * @return the set of URIs
+         */
+        private Set<String> URIs(){
+            Set<String> uris = new HashSet<>(servers.length);
+            for(FileServerMonitor monitor : servers){
+                uris.add(monitor.server.getURI());
+            }
+            return uris;
         }
 
     }
@@ -119,10 +157,11 @@ public class BasicDirectoryService implements DirectoryService {
         } else {
             userListener.accept(users.iterator().next());
         }
+        publisher = KafkaPublisher.createPublisher(KafkaUtils.KAFKA_BROKERS);
     }
 
     @Override
-    public WithHeader<FileInfo> writeFile(String filename, byte[] data, String userId, String password)
+    public FileInfo writeFile(String filename, byte[] data, String userId, String password)
             throws UnexpectedErrorException, RequestTimeoutException,
             IncorrectPasswordException, InvalidUserIdException {
         Log.info("writeFile : filename = " + filename + "; userId = " + userId + "; password = " + password);
@@ -141,47 +180,39 @@ public class BasicDirectoryService implements DirectoryService {
                 Log.info("throw RequestTimeout: out of files servers");
                 throw new RequestTimeoutException();
             }
+            Log.info("File sent");
+            FileServerMonitor[] replicas = pickReplicas(counter, data.length);
+            Log.info("Replicas picked");
 
-            reference = new FileReference(fileId, counter, info, data.length);
+            reference = new FileReference(fileId, replicas, info, data.length);
+
+            publisher.publish(KafkaUtils.DIR_FILES_TOPIC, replicaId, new Create(userId, filename, fileId, reference.size,
+                    reference.servers[0].server.getURI(), reference.URIs()));
+
+            Log.info("Operation published");
             reference.info.setFileURL(counter.server.getFileDirectUrl(fileId));
             directory.put(filename, reference);
-        } else { // case file already on the directory (overwrite
-            FileServerMonitor originalCounter = reference.server;
-            FilesServerClient originalServer = originalCounter.server;
-            try { // prefer writing to the original file server
-                Log.info("Attempting to send file to its original file server");
-                int maxRetries = filesServers.size() == 1 ? ClientUtils.MAX_RETRIES : 1;
-                originalServer.writeFile(reference.fileId, data, "", maxRetries);
-            } catch (RequestTimeoutException e) {
-                Log.severe("timed out");
-                // attempt writing to another file server (ignoring the one we've
-                //already tried)
-                reference.server = sendFile(data, reference.fileId, originalCounter);
-                if(reference.server == null) {
-                    reference.server = originalCounter;
-                    Log.info("throw RequestTimeout: out of files servers");
-                    throw new RequestTimeoutException();
-                }
-
-                //Try to clean the file from the old server
-                synchronized (filesServers) {
-                    filesServers.remove(originalCounter);
-                    originalCounter.usedStorage -= reference.size;
-                    filesServers.add(originalCounter);
-                }
-                originalServer.deleteFileAsync(reference.fileId, "");
-
-                reference.size = data.length;
-                reference.info.setFileURL(originalCounter.server.getFileDirectUrl(reference.fileId));
+        } else { // case file already on the directory (overwrite)
+            FileServerMonitor sentTo = sendFileBack(data, reference);
+            // sizeDifference = newSize - oldSize (=) newSize = oldSize + sizeDifference
+            int sizeDifference = data.length - reference.size;
+            // Report edit
+            publisher.publish(KafkaUtils.DIR_FILES_TOPIC, replicaId, new Edit(reference.info.getOwner(),
+                    reference.info.getFilename(), reference.fileId,
+                    sizeDifference, sentTo.server.getURI()));
+            //TODO replace with wait for version?
+            //update sizes
+            reference.size += sizeDifference;
+            for(FileServerMonitor monitor : reference.servers){
+                monitor.usedStorage += sizeDifference;
             }
         }
 
-        return new WithHeader<>(
-                DirectoryService.LAST_FILE_OP_HEADER, /*TODO*/"", reference.info);
+        return reference.info;
     }
 
     @Override
-    public WithHeader<Object> deleteFile(String filename, String userId, String password)
+    public void deleteFile(String filename, String userId, String password)
             throws InvalidFileLocationException, RequestTimeoutException,
             IncorrectPasswordException, InvalidUserIdException {
         Log.info("deleteFile : filename = " + filename + "; userId = " + userId + "; password = " + password);
@@ -195,14 +226,14 @@ public class BasicDirectoryService implements DirectoryService {
         }
 
         // delete the file on the file server (asynchronously)
-        removed.server.server.deleteFileAsync(removed.fileId, "");
+        publisher.publish(KafkaUtils.DIR_FILES_TOPIC, replicaId, new Delete(userId, filename, removed.fileId));
         synchronized (filesServers) {
-            filesServers.remove(removed.server);
-            removed.server.usedStorage -= removed.size;
-            filesServers.add(removed.server);
+            for(FileServerMonitor server : removed.servers) {
+                filesServers.remove(server);
+                server.usedStorage -= removed.size;
+                filesServers.add(server);
+            }
         }
-        return new WithHeader<>(
-                DirectoryService.LAST_FILE_OP_HEADER, /*TODO*/"", null);
     }
 
     @Override
@@ -259,7 +290,7 @@ public class BasicDirectoryService implements DirectoryService {
             Log.info("throw NoAccessException: user doesn't have access to file");
             throw new NoAccessException();
         }
-        FilesServerClient files = reference.server.server;
+        FilesServerClient files = reference.servers[reference.shitfReplica()].server;
 
         // redirecting to the files server, if possible, is faster than transferring the file
         if(tryRedirect) {
@@ -269,7 +300,7 @@ public class BasicDirectoryService implements DirectoryService {
             Log.info("Failed to redirect");
         }
 
-        return reference.server.server.getFile(reference.fileId, "");
+        return files.getFile(reference.fileId, "");
     }
 
     @Override
@@ -291,7 +322,7 @@ public class BasicDirectoryService implements DirectoryService {
     }
 
     @Override
-    public WithHeader<Object> deleteDirectory(String userId, String password) throws RequestTimeoutException, IncorrectPasswordException {
+    public void deleteDirectory(String userId, String password) throws RequestTimeoutException, IncorrectPasswordException {
         Log.info("deleteDirectory : userId = " + userId + "; password = " + password);
         try {
             usersServer.getUser(userId, password);
@@ -300,11 +331,10 @@ public class BasicDirectoryService implements DirectoryService {
         }
         Map<String, FileReference> directory = getDirectory(userId);
         for (FileReference reference : directory.values()) {
-            reference.server.server.deleteFileAsync(reference.fileId, "");
+            publisher.publish(KafkaUtils.DIR_FILES_TOPIC, replicaId,
+                    new Delete(reference.info.getOwner(), reference.info.getFilename(), reference.fileId));
         }
         directory.clear();
-        return new WithHeader<>(
-                DirectoryService.LAST_FILE_OP_HEADER, /*TODO*/"", null);
     }
 
     /**
@@ -318,17 +348,43 @@ public class BasicDirectoryService implements DirectoryService {
     private void validatePassword(String userId, String password) throws RequestTimeoutException, IncorrectPasswordException, InvalidUserIdException {
         usersServer.getUser(userId, password);
     }
+    
+    private FileServerMonitor sendFileBack(byte[] data, FileReference reference) throws RequestTimeoutException {
+        FileServerMonitor[] originalCounters = reference.servers;
 
-    /**
-     * Attempts to send a file to a file server,
-     * prioritizing file server with less used storage
-     * and moving to another file server on timeout
-     * @param data the contents of the file to send
-     * @param fileId the file's id
-     * @return the file server that it was sent to or null if they all failed
-     */
-    private FileServerMonitor sendFile(byte[] data, String fileId){
-        return sendFile(data, fileId, null);
+        int firstServer = -1;
+        // Goes over the servers one by one until one succeeds, preferring the next servers in line
+        for(int i = reference.shitfReplica(); i != firstServer; i = reference.shitfReplica()){
+            if(firstServer == -1)
+                firstServer = i;
+            int maxRetries = filesServers.size() - i == 1 ? ClientUtils.MAX_RETRIES : 1;
+            try {
+                Log.info("Attempting to send file to one of its replicas");
+                originalCounters[i].server.writeFile(reference.fileId, data, "", maxRetries);
+                return originalCounters[i];
+            } catch (RequestTimeoutException ignored){}
+        }
+
+        Log.severe("timed out");
+        // attempt writing to another file server (ignoring the one we've
+        //already tried)
+        FileServerMonitor sentTo = sendFile(data, reference.fileId, reference.servers);
+        if(sentTo == null) {
+            Log.info("throw RequestTimeout: out of files servers");
+            throw new RequestTimeoutException();
+        }
+        originalCounters[firstServer] = sentTo;
+
+        //Report that the file was moved from a server to another
+        publisher.publish(KafkaUtils.DIR_FILES_TOPIC, replicaId, new Move(reference.info.getOwner(),
+                reference.info.getFilename(), reference.fileId,
+                sentTo.server.getURI(), reference.URIs()));
+
+
+        // TODO replace with wait for version?
+        reference.size = data.length;
+        reference.info.setFileURL(sentTo.server.getFileDirectUrl(reference.fileId));
+        return sentTo;
     }
 
     /**
@@ -337,10 +393,27 @@ public class BasicDirectoryService implements DirectoryService {
      * and moving to another file server on timeout
      * @param data the contents of the file to send
      * @param fileId the file's id
-     * @param toIgnore a file server that will be skipped if encountered
+     * @param toIgnore file servers that will be ignored
      * @return the file server that it was sent to or null if they all failed
      */
-    private synchronized FileServerMonitor sendFile(byte[] data, String fileId, FileServerMonitor toIgnore) {
+    private synchronized FileServerMonitor sendFile(byte[] data, String fileId, FileServerMonitor[] toIgnore){
+        for (FileServerMonitor monitor : toIgnore){
+            filesServers.remove(monitor);
+        }
+        FileServerMonitor result = sendFile(data, fileId);
+        filesServers.addAll(Arrays.asList(toIgnore));
+        return result;
+    }
+
+    /**
+     * Attempts to send a file to a file server,
+     * prioritizing file server with less used storage
+     * and moving to another file server on timeout
+     * @param data the contents of the file to send
+     * @param fileId the file's id
+     * @return the file server that it was sent to or null if they all failed
+     */
+    private synchronized FileServerMonitor sendFile(byte[] data, String fileId) {
         FileServerMonitor counter;
         FileServerMonitor polled = filesServers.poll();
         if(polled == null){
@@ -348,26 +421,51 @@ public class BasicDirectoryService implements DirectoryService {
             return null;
         }
 
-        if(polled == toIgnore){
-            counter = sendFile(data, fileId, toIgnore);
-        } else {
-            try {
-                int maxRetries = 1;
-                if(filesServers.size() == 0 ||
-                        (filesServers.size() == 1 && filesServers.peek() == toIgnore)){
-                    maxRetries = ClientUtils.MAX_RETRIES;
-                    Log.info("Attempting to send file to last files server");
-                }
-                polled.server.writeFile(fileId, data, "", maxRetries);
-                polled.usedStorage += data.length;
-                counter = polled;
-            } catch (RequestTimeoutException e) {
-                Log.severe("timed out");
-                counter = sendFile(data, fileId, toIgnore);
+        try {
+            int maxRetries = 1;
+            if(filesServers.size() == 0 ||
+                    (filesServers.size() == 1)){
+                maxRetries = ClientUtils.MAX_RETRIES;
+                Log.info("Attempting to send file to last files server");
             }
+            polled.server.writeFile(fileId, data, "", maxRetries);
+            polled.usedStorage += data.length;
+            counter = polled;
+        } catch (RequestTimeoutException e) {
+            Log.severe("timed out");
+            counter = sendFile(data, fileId);
         }
         filesServers.add(polled);
         return counter;
+    }
+
+    /**
+     * Selects the first FilesService.NUMBER_OF_REPLICAS with the least occupied space
+     * @param original the file server that already contains the file (so it won't be selected again)
+     * @param size the size of the file
+     * @return
+     */
+    private synchronized FileServerMonitor[] pickReplicas(FileServerMonitor original, int size){
+        int count = Math.min(filesServers.size(), FilesService.NUMBER_OF_REPLICAS);
+        FileServerMonitor[] replicas = new FileServerMonitor[count];
+        replicas[0] = original;
+        boolean originalPolled = false;
+        for (int i = 1; i < count; i++) {
+            FileServerMonitor server = filesServers.poll();
+            if(server == original) {
+                originalPolled = true;
+                server = filesServers.poll();
+            }
+            replicas[i] = server;
+            assert replicas[i] != null; //count is at most the number of files
+            replicas[i].usedStorage += size;
+        }
+        if(originalPolled)
+            filesServers.add(original);
+        for (int i = 1; i < count; i++) {
+            filesServers.add(replicas[i]);
+        }
+        return replicas;
     }
 
     private synchronized Map<String, FileReference> getDirectory(String userId){
@@ -391,4 +489,5 @@ public class BasicDirectoryService implements DirectoryService {
                 throw new RequestTimeoutException();
             }
     }
+
 }

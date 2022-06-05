@@ -39,8 +39,8 @@ public class RestFilesResource implements RestFiles {
     }
 
     @Override
-    public byte[] getFile(String fileId, String token) {
-        return handleExceptions(()->base.getFile(fileId, token), Log);
+    public byte[] getFile(String fileId, String token, long version) {
+        return handleExceptions(()->base.getFile(fileId, token, version), Log);
     }
 
 }

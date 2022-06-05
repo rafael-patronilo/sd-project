@@ -11,6 +11,7 @@ import jakarta.xml.ws.WebServiceException;
 import org.glassfish.jersey.client.ClientConfig;
 import org.glassfish.jersey.client.ClientProperties;
 import tp1.common.exceptions.RequestTimeoutException;
+import tp1.common.services.LocalFilesService;
 
 import javax.xml.namespace.QName;
 import java.net.MalformedURLException;
@@ -197,4 +198,5 @@ public final class ClientUtils {
             throw new RuntimeException(e);
         }
     }
+
 }

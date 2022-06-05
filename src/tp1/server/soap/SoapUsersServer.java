@@ -14,7 +14,7 @@ public class SoapUsersServer {
 
     public static void main(String[] args){
         Log.setLevel(Level.INFO);
-        SoapUtils.startServer(new SoapUserResource(),
+        SoapUtils.startServer(SoapUserResource::new,
                 UsersService.NAME, new String[]{DirectoryService.NAME}, PORT, Log);
     }
 }

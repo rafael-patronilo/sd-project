@@ -1,5 +1,5 @@
 package tp1.kafka.operations;
 
 public interface OperationProcessor {
-    void onReceive(Operation op);
+    void onReceive(Operation op, long offset);
 }

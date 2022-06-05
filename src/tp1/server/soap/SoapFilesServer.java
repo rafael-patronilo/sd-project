@@ -13,7 +13,7 @@ public class SoapFilesServer {
 
     public static void main(String[] args){
         Log.setLevel(Level.INFO);
-        SoapUtils.startServer(new SoapFilesResource(),
+        SoapUtils.startServer(SoapFilesResource::new,
                 FilesService.NAME, null, PORT, Log);
 
     }

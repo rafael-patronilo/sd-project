@@ -24,7 +24,7 @@ public class SoapFilesResource implements SoapFiles {
 
     @Override
     public byte[] getFile(String fileId, String token) throws FilesException {
-        return handleExceptions(()->base.getFile(fileId, token));
+        return handleExceptions(()->base.getFile(fileId, token, -1L));
     }
 
     @Override

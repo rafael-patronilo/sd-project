@@ -33,7 +33,7 @@ public class RESTDropboxServer {
 
         FilesService service = new DropboxFilesService(cleanState, apiKey, apiSecret, accessToken);
         RestUtils.startServer(FilesService.NAME,
-                new RestFilesResource(service), null, PORT, Log);
+                () -> new RestFilesResource(service), null, PORT, Log);
     }
 
 }

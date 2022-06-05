@@ -26,6 +26,11 @@ public class SoapFilesClient implements FilesServerClient {
     }
 
     @Override
+    public String getURI() {
+        return uri;
+    }
+
+    @Override
     public synchronized void writeFile(String fileId, byte[] data, String token, int maxRetries) throws RequestTimeoutException {
         try {
             ClientUtils.reTry(()->{

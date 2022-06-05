@@ -15,7 +15,7 @@ public class SoapDirServer {
 
     public static void main(String[] args){
         Log.setLevel(Level.INFO);
-        SoapUtils.startServer(new SoapDirResource(),
+        SoapUtils.startServer(SoapDirResource::new,
                 DirectoryService.NAME, new String[]{UsersService.NAME, FilesService.NAME}, PORT, Log);
     }
 }

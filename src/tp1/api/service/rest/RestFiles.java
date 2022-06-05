@@ -3,6 +3,9 @@ package tp1.api.service.rest;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import tp1.common.services.DirectoryService;
+import tp1.kafka.operations.Operation;
+
+import java.util.List;
 
 @Path(RestFiles.PATH)
 public interface RestFiles {
@@ -59,6 +62,7 @@ public interface RestFiles {
 	@Path("/{fileId}")
 	@Produces(MediaType.APPLICATION_OCTET_STREAM)
 	byte[] getFile(@PathParam("fileId") String fileId, 
-			@QueryParam("token") @DefaultValue("") String token);
+			@QueryParam("token") @DefaultValue("") String token,
+				   @HeaderParam(DirectoryService.VERSION_HEADER) @DefaultValue("-1") long version);
 
 }

@@ -14,6 +14,12 @@ public interface FilesServerClient {
     String getFileDirectUrl(String fileId);
 
     /**
+     * This server's URI
+     * @return the URI
+     */
+    String getURI();
+
+    /**
      * Write a file. If the file exists, overwrites the contents.
      *
      * @param fileId - unique id of the file.
