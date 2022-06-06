@@ -45,7 +45,6 @@ public class DropboxFilesService extends BaseFilesService{
     }
 
     private record UploadV1Args(String path, String mode){
-        //TODO maybe add hash?
         static final String OVERWRITE = "overwrite";
         static final String URL = "https://content.dropboxapi.com/2/files/upload";
     }

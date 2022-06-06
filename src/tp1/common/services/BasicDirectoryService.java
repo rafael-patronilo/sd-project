@@ -36,7 +36,6 @@ public class BasicDirectoryService implements DirectoryService {
     private static final List<String> TOPICS = Arrays.asList(KafkaUtils.DIR_FILES_TOPIC);
     private final KafkaPublisher publisher;
 
-    private final String replicaId = "yes";
     private UsersServerClient usersServer = null;
 
     // Priority queue with file servers prioritizing the ones with less occupied space
@@ -182,7 +181,7 @@ public class BasicDirectoryService implements DirectoryService {
             reference = new FileReference(fileId, replicas, info, data.length);
             reference.info.setFileURL(reference.servers[0].server.getFileDirectUrl(fileId));
 
-            long version = publisher.publish(KafkaUtils.DIR_FILES_TOPIC, replicaId, new Create(userId, filename, fileId, reference.size,
+            long version = publisher.publish(KafkaUtils.DIR_FILES_TOPIC, new Create(userId, filename, fileId, reference.size,
                     reference.servers[0].server.getURI(), reference.URIs(), info));
             syncPoint.waitForVersion(version);
         } else { // case file already on the directory (overwrite)
@@ -190,7 +189,7 @@ public class BasicDirectoryService implements DirectoryService {
             // sizeDifference = newSize - oldSize (=) newSize = oldSize + sizeDifference
             int sizeDifference = data.length - reference.size;
             // Report edit
-            long version = publisher.publish(KafkaUtils.DIR_FILES_TOPIC, replicaId, new Edit(reference.info.getOwner(),
+            long version = publisher.publish(KafkaUtils.DIR_FILES_TOPIC, new Edit(reference.info.getOwner(),
                     reference.info.getFilename(), reference.fileId,
                     sizeDifference, sentTo.server.getURI()));
             syncPoint.waitForVersion(version);
@@ -214,7 +213,7 @@ public class BasicDirectoryService implements DirectoryService {
         }
 
         // delete the file on the file server (asynchronously)
-        long version = publisher.publish(KafkaUtils.DIR_FILES_TOPIC, replicaId, new Delete(userId, filename, removing.fileId));
+        long version = publisher.publish(KafkaUtils.DIR_FILES_TOPIC, new Delete(userId, filename, removing.fileId));
         syncPoint.waitForVersion(version);
     }
 
@@ -234,7 +233,7 @@ public class BasicDirectoryService implements DirectoryService {
         validatePassword(userId, password);
         if(!userId.equals(userIdShare)) {
             Log.info("Publishing share");
-            long version = publisher.publish(KafkaUtils.DIR_FILES_TOPIC, replicaId,
+            long version = publisher.publish(KafkaUtils.DIR_FILES_TOPIC,
                     new Share(userId, filename, userIdShare));
             Log.info("Published share");
             syncPoint.waitForVersion(version);
@@ -257,7 +256,7 @@ public class BasicDirectoryService implements DirectoryService {
 
         validatePassword(userId, password);
         if(!userId.equals(userIdShare)) {
-            long version = publisher.publish(KafkaUtils.DIR_FILES_TOPIC, replicaId,
+            long version = publisher.publish(KafkaUtils.DIR_FILES_TOPIC,
                     new Unshare(userId, filename, userIdShare));
             syncPoint.waitForVersion(version);
         }
@@ -331,7 +330,7 @@ public class BasicDirectoryService implements DirectoryService {
         }
         Map<String, FileReference> directory = getDirectory(userId);
         for (FileReference reference : directory.values()) {
-            publisher.publish(KafkaUtils.DIR_FILES_TOPIC, replicaId,
+            publisher.publish(KafkaUtils.DIR_FILES_TOPIC,
                     new Delete(reference.info.getOwner(), reference.info.getFilename(), reference.fileId));
         }
     }
@@ -375,15 +374,10 @@ public class BasicDirectoryService implements DirectoryService {
         originalCounters[firstServer] = sentTo;
 
         //Report that the file was moved from a server to another
-        long version = publisher.publish(KafkaUtils.DIR_FILES_TOPIC, replicaId, new Move(reference.info.getOwner(),
+        long version = publisher.publish(KafkaUtils.DIR_FILES_TOPIC, new Move(reference.info.getOwner(),
                 reference.info.getFilename(), reference.fileId,
                 sentTo.server.getURI(), reference.URIs()));
-        syncPoint.setVersion(version);
-
-
-        // TODO replace with wait for version?
-        reference.size = data.length;
-        reference.info.setFileURL(sentTo.server.getFileDirectUrl(reference.fileId));
+        syncPoint.waitForVersion(version);
         return sentTo;
     }
 
