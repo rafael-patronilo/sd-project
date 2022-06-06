@@ -26,9 +26,9 @@ public class RESTDropboxServer {
         String apiSecret = args[3];
         String accessToken = args[4];
 
-        FilesService service = new DropboxFilesService(cleanState, apiKey, apiSecret, accessToken);
         RestUtils.startServer(FilesService.NAME,
-                () -> new RestFilesResource(service), null, PORT, Log);
+                () -> new RestFilesResource(new DropboxFilesService(cleanState, apiKey, apiSecret, accessToken)),
+                null, PORT, Log);
     }
 
 }

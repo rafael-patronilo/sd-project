@@ -112,6 +112,7 @@ public final class RestUtils {
             String ip = InetAddress.getLocalHost().getHostAddress();
             String serverURI = String.format(SERVER_URI_FMT, ip, port);
             ServerUtils.setUri(serverURI);
+            MulticastServiceDiscovery.startDiscovery(serviceName, serverURI, servicesToDiscover);
 
             ResourceConfig config = new ResourceConfig();
             config.register(resourceSupplier.get());
@@ -121,7 +122,6 @@ public final class RestUtils {
 
             JdkHttpServerFactory.createHttpServer(URI.create(serverURI), config, SSLContext.getDefault());
 
-            MulticastServiceDiscovery.startDiscovery(serviceName, serverURI, servicesToDiscover);
             Log.info(String.format("%s Server ready @ %s\n", serviceName, serverURI));
         } catch (Exception e) {
             throw new RuntimeException(e);

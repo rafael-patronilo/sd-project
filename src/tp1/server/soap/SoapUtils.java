@@ -52,6 +52,7 @@ public final class SoapUtils {
             String ip = InetAddress.getLocalHost().getHostAddress();
             String serverURI = String.format(URI_FORMAT, ip, port);
             ServerUtils.setUri(serverURI);
+            MulticastServiceDiscovery.startDiscovery(serviceName, serverURI, servicesToDiscover);
 
             HttpsServer server = HttpsServer.create(new InetSocketAddress(ip, port), 0);
 
@@ -62,8 +63,6 @@ public final class SoapUtils {
             endpoint.publish(server.createContext("/soap"));
 
             server.start();
-
-            MulticastServiceDiscovery.startDiscovery(serviceName, serverURI, servicesToDiscover);
 
             Log.info(String.format("%s Soap Server ready @ %s\n", serviceName, serverURI));
         } catch (Exception e){
