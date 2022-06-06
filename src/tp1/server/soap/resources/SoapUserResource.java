@@ -52,7 +52,7 @@ public class SoapUserResource implements SoapUsers {
             return call.invoke();
         } catch (RequestTimeoutException | IncorrectPasswordException | InvalidArgumentException |
                  NoAccessException | InvalidUserIdException | UnexpectedErrorException |
-                 InvalidFileLocationException | ConflicitingUsersException e) {
+                 InvalidFileLocationException | ConflicitingUsersException| InvalidTokenException e) {
             throw new UsersException(SoapUtils.logException(e, Log));
         }
     }

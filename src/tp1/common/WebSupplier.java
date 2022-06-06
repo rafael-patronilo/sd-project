@@ -10,5 +10,5 @@ public interface WebSupplier<T> {
     T invoke() throws
             IncorrectPasswordException, InvalidFileLocationException, InvalidUserIdException,
             NoAccessException, RequestTimeoutException, UnexpectedErrorException,
-            InvalidArgumentException, ConflicitingUsersException;
+            InvalidArgumentException, ConflicitingUsersException, InvalidTokenException;
 }

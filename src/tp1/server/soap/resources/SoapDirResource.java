@@ -36,8 +36,8 @@ public class SoapDirResource implements SoapDirectory {
     }
 
     @Override
-    public void deleteDirectory(String userId, String password) throws DirectoryException {
-        handleExceptions(() -> service.deleteDirectory(userId, password));
+    public void deleteDirectory(String userId, String password, String token) throws DirectoryException {
+        handleExceptions(() -> service.deleteDirectory(userId, password, token));
     }
 
     @Override
@@ -71,7 +71,7 @@ public class SoapDirResource implements SoapDirectory {
             return call.invoke();
         } catch (RequestTimeoutException | IncorrectPasswordException | InvalidArgumentException |
                  NoAccessException | InvalidUserIdException | UnexpectedErrorException |
-                 InvalidFileLocationException | ConflicitingUsersException e) {
+                 InvalidFileLocationException | ConflicitingUsersException | InvalidTokenException e) {
             throw new DirectoryException(SoapUtils.logException(e, Log));
         }
     }

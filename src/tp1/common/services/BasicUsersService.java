@@ -99,7 +99,7 @@ public class BasicUsersService implements UsersService {
 			user = validateUser(userId, password);
 			users.remove(userId);
 		}
-		directoryServer.deleteDirectoryAsync(userId, password);
+		directoryServer.deleteDirectoryAsync(userId);
 		return user;
 	}
 

@@ -21,7 +21,7 @@ public interface SoapDirectory {
 	void deleteFile(String filename, String userId, String password) throws DirectoryException;
 
 	@WebMethod
-	void deleteDirectory(String userId, String password) throws DirectoryException;
+	void deleteDirectory(String userId, String password, String token) throws DirectoryException;
 
 	@WebMethod
 	void shareFile(String filename, String userId, String userIdShare, String password) throws DirectoryException;

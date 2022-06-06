@@ -64,8 +64,8 @@ public class RestDirResource implements RestDirectory {
     }
 
     @Override
-    public void deleteDirectory(String userId, String password) {
-        handleExceptions(() -> base.deleteDirectory(userId, password), Log);
+    public void deleteDirectory(String userId, String password, String token) {
+        handleExceptions(() -> base.deleteDirectory(userId, password, token), Log);
         throw new WebApplicationException(Response.Status.NO_CONTENT);
     }
 }

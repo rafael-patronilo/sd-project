@@ -9,12 +9,13 @@ import  com.github.scribejava.core.model.Response;
 import com.google.gson.*;
 import org.pac4j.scribe.builder.api.DropboxApi20;
 import tp1.common.exceptions.InvalidFileLocationException;
+import tp1.common.exceptions.InvalidTokenException;
 import tp1.common.exceptions.UnexpectedErrorException;
 
 import java.io.IOException;
 import java.util.logging.Logger;
 
-public class DropboxFilesService implements FilesService{
+public class DropboxFilesService extends BaseFilesService{
     private static Logger Log = Logger.getLogger(DropboxFilesService.class.getName());
     private final String apiKey;
     private final String apiSecret;
@@ -65,15 +66,22 @@ public class DropboxFilesService implements FilesService{
     private OAuth2AccessToken accessToken;
     private OAuth20Service service;
     public DropboxFilesService(boolean cleanState, String apiKey, String apiSecret, String accessTokenStr){
+        super(Log);
         this.apiKey = apiKey;
         this.apiSecret = apiSecret;
         this.accessToken = new OAuth2AccessToken(accessTokenStr);
         this.service = new ServiceBuilder(apiKey).apiSecret(apiSecret).build(DropboxApi20.INSTANCE);
         initDropbox(cleanState);
+
     }
 
     @Override
     public void writeFile(String fileId, byte[] data, String token) throws UnexpectedErrorException {
+        writeFile(fileId, data);
+    }
+
+    @Override
+    protected void writeFile(String fileId, byte[] data) throws UnexpectedErrorException{
         UploadV1Args args = new UploadV1Args(pathToFile(fileId), UploadV1Args.OVERWRITE);
         ApiResponse r = contentUpload(UploadV1Args.URL, args, data);
         if (r.code != SUCCESS_CODE){
@@ -83,6 +91,11 @@ public class DropboxFilesService implements FilesService{
 
     @Override
     public void deleteFile(String fileId, String token) throws InvalidFileLocationException {
+        deleteFile(fileId);
+    }
+
+    @Override
+    protected void deleteFile(String fileId) throws InvalidFileLocationException{
         DeleteV2Args args = new DeleteV2Args(pathToFile(fileId));
         ApiResponse r = rpc(DeleteV2Args.URL, args);
         if(r.code == ENDPOINT_ERROR_CODE && r.isNotFound()){
@@ -91,7 +104,10 @@ public class DropboxFilesService implements FilesService{
     }
 
     @Override
-    public byte[] getFile(String fileId, String token, long version) throws UnexpectedErrorException, InvalidFileLocationException {
+    public byte[] getFile(String fileId, String token, long version) throws
+            UnexpectedErrorException, InvalidFileLocationException, InvalidTokenException {
+        Log.info("getFile : " + fileId + "\n\t version: " + version + "\n token: " + token);
+        validateToken(token, fileId);
         DownloadV1Args args = new DownloadV1Args(pathToFile(fileId));
         DownloadResponse r = contentDownload(DownloadV1Args.URL, args);
 

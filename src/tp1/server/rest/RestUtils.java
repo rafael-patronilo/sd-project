@@ -76,6 +76,9 @@ public final class RestUtils {
         } catch (ConflicitingUsersException e) {
             Log.info("throwing CONFLICT: conflicting users");
             throw new WebApplicationException(Response.Status.CONFLICT);
+        } catch (InvalidTokenException e){
+            Log.info("throwing FORBIDDEN: invalid token");
+            throw new WebApplicationException(Response.Status.FORBIDDEN);
         } catch (WebApplicationException e){
             throw e;
         } catch (Exception e) {

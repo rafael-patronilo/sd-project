@@ -32,19 +32,4 @@ public final class OperationUtils {
         };
     }
 
-    static String replicasToString(Iterable<String> replicas){
-        StringBuilder builder = new StringBuilder();
-        builder.append("[");
-        boolean first = true;
-        for(String replica : replicas){
-            if(first){
-                first = false;
-            } else{
-                builder.append(",");
-            }
-            builder.append(replica);
-        }
-        builder.append("]");
-        return builder.toString();
-    }
 }

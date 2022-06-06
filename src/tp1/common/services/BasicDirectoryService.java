@@ -6,7 +6,6 @@ import tp1.client.rest.RestFilesClient;
 import tp1.client.rest.RestUsersClient;
 import tp1.client.soap.SoapFilesClient;
 import tp1.client.soap.SoapUsersClient;
-import tp1.common.ServerUtils;
 import tp1.common.clients.FilesServerClient;
 import tp1.common.clients.UsersServerClient;
 import tp1.common.exceptions.*;
@@ -16,6 +15,8 @@ import tp1.kafka.KafkaUtils;
 import tp1.kafka.operations.*;
 import tp1.kafka.sync.SyncPoint;
 import tp1.server.MulticastServiceDiscovery;
+import tp1.tokens.PermanentToken;
+import tp1.tokens.TokenManager;
 
 import java.io.File;
 import java.util.*;
@@ -45,9 +46,6 @@ public class BasicDirectoryService implements DirectoryService {
     private final Map<String, Map<String, FileReference>> directories = new HashMap<>();
 
     private KafkaSubscriber subscriber;
-
-    // The file id for the next file written
-    private AtomicLong nextFileId = new AtomicLong();
 
     /**
      * Associates a file server to the respective amount of used storage
@@ -125,16 +123,7 @@ public class BasicDirectoryService implements DirectoryService {
         MulticastServiceDiscovery discovery = MulticastServiceDiscovery.getInstance();
         // listener for file servers
         Consumer<String> filesListener = (String uri) ->{
-            FilesServerClient proxy = null;
-            if(uri.endsWith("rest")) {
-                proxy = new RestFilesClient(uri);
-            }
-            else if(uri.endsWith("soap")){
-                proxy = new SoapFilesClient(uri);
-            }
-            synchronized (filesServers) {
-                filesServers.add(new FileServerMonitor(proxy));
-            }
+            getOrCreateFileServerMonitor(uri);
         };
         // add file servers already discovered
         for(String uri : discovery.discoveredServices(FilesService.NAME)){
@@ -177,7 +166,7 @@ public class BasicDirectoryService implements DirectoryService {
 
         if (reference == null) { // case new file on the directory
             FileInfo info = new FileInfo(userId, filename, null, new HashSet<>());
-            String fileId = String.valueOf(nextFileId.getAndIncrement());
+            String fileId = UUID.randomUUID().toString();
             Log.info(String.format("mapped %s/%s to file id %s", userId, filename, fileId));
 
             // attempt to send file to a file server
@@ -244,9 +233,12 @@ public class BasicDirectoryService implements DirectoryService {
 
         validatePassword(userId, password);
         if(!userId.equals(userIdShare)) {
+            Log.info("Publishing share");
             long version = publisher.publish(KafkaUtils.DIR_FILES_TOPIC, replicaId,
                     new Share(userId, filename, userIdShare));
+            Log.info("Published share");
             syncPoint.waitForVersion(version);
+            Log.info("Executed share");
         }
     }
 
@@ -297,12 +289,12 @@ public class BasicDirectoryService implements DirectoryService {
         // redirecting to the files server, if possible, is faster than transferring the file
         if(tryRedirect) {
             Log.info("Attempting to redirect to files server");
-            files.redirectToGetFile(reference.fileId, "", version);
+            files.redirectToGetFile(reference.fileId, version);
             // If the redirect succeeds, execution won't reach this point
             Log.info("Failed to redirect");
         }
 
-        return files.getFile(reference.fileId, "", version);
+        return files.getFile(reference.fileId, version);
     }
 
     @Override
@@ -324,12 +316,18 @@ public class BasicDirectoryService implements DirectoryService {
     }
 
     @Override
-    public void deleteDirectory(String userId, String password) throws RequestTimeoutException, IncorrectPasswordException {
+    public void deleteDirectory(String userId, String password, String token) throws RequestTimeoutException, IncorrectPasswordException, InvalidTokenException {
         Log.info("deleteDirectory : userId = " + userId + "; password = " + password);
-        try {
-            usersServer.getUser(userId, password);
-        } catch (InvalidUserIdException ignored) {
-            Log.info("User does not exist; deleting anyway");
+        if(token != null){
+            if(!(TokenManager.checkToken(token) instanceof PermanentToken)){
+                throw new InvalidTokenException();
+            }
+        } else {
+            try {
+                validatePassword(userId, password);
+            } catch (InvalidUserIdException ignored) {
+                Log.info("User does not exist; deleting anyway");
+            }
         }
         Map<String, FileReference> directory = getDirectory(userId);
         for (FileReference reference : directory.values()) {
@@ -361,7 +359,7 @@ public class BasicDirectoryService implements DirectoryService {
             int maxRetries = filesServers.size() - i == 1 ? ClientUtils.MAX_RETRIES : 1;
             try {
                 Log.info("Attempting to send file to one of its replicas");
-                originalCounters[i].server.writeFile(reference.fileId, data, "", maxRetries);
+                originalCounters[i].server.writeFile(reference.fileId, data, maxRetries);
                 return originalCounters[i];
             } catch (RequestTimeoutException ignored){}
         }
@@ -430,7 +428,7 @@ public class BasicDirectoryService implements DirectoryService {
                 maxRetries = ClientUtils.MAX_RETRIES;
                 Log.info("Attempting to send file to last files server");
             }
-            polled.server.writeFile(fileId, data, "", maxRetries);
+            polled.server.writeFile(fileId, data, maxRetries);
             polled.usedStorage += data.length;
             counter = polled;
         } catch (RequestTimeoutException e) {
@@ -474,6 +472,26 @@ public class BasicDirectoryService implements DirectoryService {
         return directories.computeIfAbsent(userId, k -> new ConcurrentHashMap<>());
     }
 
+    private synchronized FileServerMonitor getOrCreateFileServerMonitor(String uri){
+        for(FileServerMonitor monitor : filesServers){
+            if(monitor.server.getURI().equals(uri)){
+                return monitor;
+            }
+        }
+        FilesServerClient proxy = null;
+        if(uri.endsWith("rest")) {
+            proxy = new RestFilesClient(uri);
+        }
+        else if(uri.endsWith("soap")){
+            proxy = new SoapFilesClient(uri);
+        }
+        FileServerMonitor monitor = new FileServerMonitor(proxy);
+        synchronized (filesServers) {
+            filesServers.add(monitor);
+        }
+        return monitor;
+    }
+
     /**
      * Validates that a given user id exists
      * @param userId the user id to validate
@@ -492,20 +510,11 @@ public class BasicDirectoryService implements DirectoryService {
             }
     }
 
-    private FileServerMonitor serverFromURI(String uri){
-        for(FileServerMonitor monitor : filesServers){
-            if(monitor.server.getURI().equals(uri)){
-                return monitor;
-            }
-        }
-         return null;
-    }
-
     private FileServerMonitor[] getReplicaArray(Set<String> uris, String original){
         FileServerMonitor[] servers = new FileServerMonitor[uris.size()];
         int i = 0;
         for(String uri : uris){
-            FileServerMonitor monitor = serverFromURI(uri);
+            FileServerMonitor monitor = getOrCreateFileServerMonitor(uri);
             if(uri.equals(original)){
                 servers[i++] = servers[0];
                 servers[0] = monitor;

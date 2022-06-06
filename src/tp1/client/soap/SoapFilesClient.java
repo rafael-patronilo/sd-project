@@ -7,11 +7,13 @@ import tp1.common.clients.FilesServerClient;
 import tp1.common.exceptions.InvalidFileLocationException;
 import tp1.common.exceptions.RequestTimeoutException;
 import tp1.server.soap.SoapUtils;
+import tp1.tokens.TokenManager;
 
 /**
  * Soap implementation for FilesServerClient
  */
 public class SoapFilesClient implements FilesServerClient {
+    private final String permanentToken = TokenManager.serializeToken(TokenManager.createPermanentToken());
     private SoapFiles server;
     private String uri;
     public SoapFilesClient(String uri){
@@ -31,10 +33,10 @@ public class SoapFilesClient implements FilesServerClient {
     }
 
     @Override
-    public synchronized void writeFile(String fileId, byte[] data, String token, int maxRetries) throws RequestTimeoutException {
+    public synchronized void writeFile(String fileId, byte[] data, int maxRetries) throws RequestTimeoutException {
         try {
             ClientUtils.reTry(()->{
-                server.writeFile(fileId, data, token);
+                server.writeFile(fileId, data, permanentToken);
                 return null;
             }, maxRetries);
         } catch (RequestTimeoutException e){
@@ -45,10 +47,10 @@ public class SoapFilesClient implements FilesServerClient {
     }
 
     @Override
-    public synchronized void deleteFileAsync(String fileId, String token) {
+    public synchronized void deleteFileAsync(String fileId) {
         ClientUtils.reTryAsync(()->{
             try {
-                server.deleteFile(fileId, token);
+                server.deleteFile(fileId, permanentToken);
             } catch (FilesException e){
                 if (e.getMessage().equals(SoapUtils.BAD_REQUEST)){
                     return false;
@@ -59,25 +61,25 @@ public class SoapFilesClient implements FilesServerClient {
     }
 
     @Override
-    public void redirectToGetFile(String fileId, String token) {
-        redirectToGetFile(fileId, token, -1L);
+    public void redirectToGetFile(String fileId) {
+        redirectToGetFile(fileId,-1L);
     }
 
     @Override
-    public void redirectToGetFile(String fileId, String token, long version) {
+    public void redirectToGetFile(String fileId, long version) {
         //Not implemented on soap
     }
 
     @Override
-    public byte[] getFile(String fileId, String token) throws RequestTimeoutException, InvalidFileLocationException {
-        return getFile(fileId, token, -1L);
+    public byte[] getFile(String fileId) throws RequestTimeoutException, InvalidFileLocationException {
+        return getFile(fileId, -1L);
     }
 
     @Override
-    public synchronized byte[] getFile(String fileId, String token, long version) throws RequestTimeoutException, InvalidFileLocationException {
+    public synchronized byte[] getFile(String fileId, long version) throws RequestTimeoutException, InvalidFileLocationException {
         try {
             return ClientUtils.reTry(()->{
-                return server.getFile(fileId, token);
+                return server.getFile(fileId, permanentToken);
             });
         } catch (RequestTimeoutException e){
             throw e;

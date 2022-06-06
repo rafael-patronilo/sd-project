@@ -103,6 +103,9 @@ public final class SoapUtils {
         } else if (e instanceof ConflicitingUsersException) {
             Log.info("throwing" + CONFLICT + ": conflicting users");
             return CONFLICT;
+        } else if (e instanceof InvalidTokenException){
+            Log.info("throwing" + FORBIDDEN + ": invalid token");
+            return FORBIDDEN;
         }
         return null;
     }

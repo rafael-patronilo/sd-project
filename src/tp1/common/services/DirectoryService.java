@@ -21,5 +21,5 @@ public interface DirectoryService {
 
     List<FileInfo> lsFile(String userId, String password) throws RequestTimeoutException, IncorrectPasswordException, InvalidUserIdException;
 
-    void deleteDirectory(String userId, String password) throws RequestTimeoutException, IncorrectPasswordException;
+    void deleteDirectory(String userId, String password, String token) throws RequestTimeoutException, IncorrectPasswordException, InvalidTokenException;
 }
